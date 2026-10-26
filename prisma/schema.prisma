@@ -1,0 +1,227 @@
+// Artist FC League — data model
+// dev: SQLite  |  prod: เปลี่ยน provider เป็น "postgresql" + ใช้ @prisma/adapter-pg
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ───────────────────────────── ผู้ใช้งานหลังบ้าน ─────────────────────────────
+
+enum Role {
+  ADMIN // จัดการได้ทุกอย่าง
+  REFEREE // บันทึกผลการแข่งขันที่ตัวเองได้รับมอบหมาย
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(REFEREE)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  refereeFor  Match[]    @relation("MatchReferee")
+  submitted   Match[]    @relation("MatchSubmitter")
+  approved    Match[]    @relation("MatchApprover")
+  auditEntries AuditLog[]
+}
+
+// ───────────────────────────── ลีก / ฤดูกาล ─────────────────────────────
+
+model Season {
+  id        String   @id @default(cuid())
+  name      String // "2026–27"
+  slug      String   @unique // "2026-27"
+  isActive  Boolean  @default(false)
+  rounds    Int      @default(1) // 1 = เจอกันรอบเดียว, 2 = เหย้า-เยือน
+  pointsWin Int      @default(3)
+  pointsDraw Int     @default(1)
+  pointsLoss Int     @default(0)
+  // ลำดับการตัดสินเมื่อคะแนนเท่ากัน เก็บเป็น JSON array เช่น ["GOAL_DIFF","GOALS_FOR","HEAD_TO_HEAD","WINS","NAME"]
+  tiebreakers String  @default("[\"GOAL_DIFF\",\"GOALS_FOR\",\"HEAD_TO_HEAD\",\"WINS\",\"NAME\"]")
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teams   SeasonTeam[]
+  matches Match[]
+  zones   Zone[]
+}
+
+/// แถบสีด้านซ้ายของตารางคะแนน (โซนแชมเปียนส์ลีก / ตกชั้น ฯลฯ)
+model Zone {
+  id       String @id @default(cuid())
+  seasonId String
+  label    String // "ชิงแชมป์"
+  color    String // "#1d4ed8"
+  fromPos  Int
+  toPos    Int
+
+  season Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@index([seasonId])
+}
+
+// ───────────────────────────── ทีม / นักเตะ ─────────────────────────────
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String // "แมนเชสเตอร์ ซิตี"
+  shortName String // "แมนซิตี"
+  code      String // "MCI"
+  slug      String   @unique
+  logoUrl   String?
+  color     String   @default("#1f2937")
+  venue     String?
+  city      String?
+  founded   Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  players     Player[]
+  seasons     SeasonTeam[]
+  homeMatches Match[]      @relation("HomeTeam")
+  awayMatches Match[]      @relation("AwayTeam")
+  events      MatchEvent[]
+}
+
+model SeasonTeam {
+  id       String @id @default(cuid())
+  seasonId String
+  teamId   String
+
+  season Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([seasonId, teamId])
+  @@index([seasonId])
+}
+
+enum Position {
+  GK
+  DF
+  MF
+  FW
+}
+
+model Player {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  teamId      String?
+  number      Int?
+  position    Position  @default(MF)
+  photoUrl    String?
+  nationality String?
+  birthDate   DateTime?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  team    Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  events  MatchEvent[] @relation("EventPlayer")
+  assists MatchEvent[] @relation("EventAssist")
+
+  @@index([teamId])
+}
+
+// ───────────────────────────── การแข่งขัน ─────────────────────────────
+
+enum MatchStatus {
+  SCHEDULED // ยังไม่แข่ง
+  LIVE // กำลังแข่ง
+  PENDING // กรรมการส่งผลแล้ว รออนุมัติ
+  FINISHED // อนุมัติแล้ว นับคะแนน
+  POSTPONED // เลื่อน
+  CANCELLED // ยกเลิก
+}
+
+model Match {
+  id         String      @id @default(cuid())
+  seasonId   String
+  round      Int // นัดที่ (matchweek)
+  homeTeamId String
+  awayTeamId String
+  kickoffAt  DateTime
+  venue      String?
+  status     MatchStatus @default(SCHEDULED)
+  homeGoals  Int?
+  awayGoals  Int?
+  notes      String?
+
+  refereeId   String?
+  submittedById String?
+  submittedAt   DateTime?
+  approvedById  String?
+  approvedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  season      Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  homeTeam    Team   @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Cascade)
+  awayTeam    Team   @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Cascade)
+  referee     User?  @relation("MatchReferee", fields: [refereeId], references: [id], onDelete: SetNull)
+  submittedBy User?  @relation("MatchSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  approvedBy  User?  @relation("MatchApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  events MatchEvent[]
+
+  @@index([seasonId, round])
+  @@index([status])
+}
+
+enum EventType {
+  GOAL
+  OWN_GOAL
+  PENALTY_GOAL
+  PENALTY_MISS
+  YELLOW
+  SECOND_YELLOW
+  RED
+}
+
+model MatchEvent {
+  id             String    @id @default(cuid())
+  matchId        String
+  teamId         String
+  playerId       String?
+  assistPlayerId String?
+  type           EventType
+  minute         Int
+  extraMinute    Int? // เวลาทดเจ็บ เช่น 90+3
+  note           String?
+  createdAt      DateTime  @default(now())
+
+  match        Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team         Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player       Player? @relation("EventPlayer", fields: [playerId], references: [id], onDelete: SetNull)
+  assistPlayer Player? @relation("EventAssist", fields: [assistPlayerId], references: [id], onDelete: SetNull)
+
+  @@index([matchId])
+  @@index([playerId])
+}
+
+// ───────────────────────────── บันทึกการแก้ไข ─────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String // "MATCH_SUBMIT" | "MATCH_APPROVE" | "TEAM_UPDATE" ...
+  entity    String // "Match" | "Team" ...
+  entityId  String
+  detail    String? // JSON
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
