@@ -174,16 +174,13 @@ npm run test          # ต้องเปิด npm run dev ไว้อีก�
 
 ---
 
-## ย้ายไป PostgreSQL ตอนขึ้นจริง
+## ฐานข้อมูล & Deploy ขึ้น Vercel
 
-ตอน dev ใช้ SQLite เพื่อให้รันได้ทันที ย้ายไป Postgres ได้ด้วย 4 ขั้นตอน
+ใช้ PostgreSQL (เช่น Neon ผ่าน Vercel Storage) ทั้งตอน dev และ production
 
-1. `prisma/schema.prisma` → เปลี่ยน `provider = "sqlite"` เป็น `"postgresql"`
-2. `npm i @prisma/adapter-pg pg`
-3. `src/lib/db.ts` → เปลี่ยน adapter ตามคอมเมนต์ที่เขียนไว้ในไฟล์
-4. ตั้ง `DATABASE_URL` ใหม่ แล้ว `npx prisma migrate dev --name init-postgres`
-
-schema เขียนให้ย้ายได้อยู่แล้ว (ไม่มี type เฉพาะของ SQLite)
+1. ตั้ง `.env` ให้มี `DATABASE_URL` (pooled) และ `DATABASE_URL_UNPOOLED` (ต่อตรง ใช้กับ migration)
+2. ครั้งแรก: `npx prisma migrate dev --name init` แล้ว `npm run db:seed`
+3. บน Vercel ตั้ง env `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `AUTH_SECRET` — `vercel.json` จะรัน `prisma migrate deploy` ก่อน `next build` ให้อัตโนมัติ
 
 ก่อน deploy อย่าลืมตั้ง `AUTH_SECRET` เป็นค่าสุ่ม:
 

@@ -1,5 +1,5 @@
 // Artist FC League — data model
-// dev: SQLite  |  prod: เปลี่ยน provider เป็น "postgresql" + ใช้ @prisma/adapter-pg
+// ฐานข้อมูล: PostgreSQL (dev และ prod) ผ่าน @prisma/adapter-pg
 
 generator client {
   provider = "prisma-client"
@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 // ───────────────────────────── ผู้ใช้งานหลังบ้าน ─────────────────────────────

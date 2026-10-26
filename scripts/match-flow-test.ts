@@ -5,11 +5,11 @@
  * ทดสอบแล้วคืนค่าเดิมทุกครั้ง
  */
 import "dotenv/config";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 
 const BASE = process.env.SMOKE_BASE ?? "http://localhost:3000";
-const db = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! }) });
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 
 let failures = 0;
 const check = (label: string, ok: boolean, detail = "") => {

@@ -7,11 +7,11 @@
  *   - มี viewport meta ที่ถูกต้อง
  */
 import "dotenv/config";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 
 const BASE = process.env.SMOKE_BASE ?? "http://localhost:3000";
-const db = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! }) });
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 
 /** ความกว้างจอที่ต้องรองรับ — เล็กสุดคือ iPhone SE รุ่นแรก */
 const SCREENS = [

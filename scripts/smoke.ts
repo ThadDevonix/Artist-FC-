@@ -4,11 +4,11 @@
  */
 import "dotenv/config";
 import { SignJWT } from "jose";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 
 const BASE = process.env.SMOKE_BASE ?? "http://localhost:3000";
-const db = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! }) });
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 
 async function cookieFor(email: string) {
   const user = await db.user.findUniqueOrThrow({ where: { email } });

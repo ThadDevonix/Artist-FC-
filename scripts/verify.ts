@@ -1,10 +1,10 @@
 import "dotenv/config";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { computeStandings, parseTiebreakers, type StandingTeam } from "../src/lib/standings";
 import { generateRoundRobin, fixtureSummary } from "../src/lib/fixtures";
 
-const db = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! }) });
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 
 async function main() {
   const season = (await db.season.findFirst({ where: { isActive: true } }))!;

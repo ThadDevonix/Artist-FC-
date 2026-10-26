@@ -1,21 +1,10 @@
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
-// ───────────────────────────────────────────────────────────────
-// ย้ายไป PostgreSQL ตอน deploy:
-//   1. prisma/schema.prisma → provider = "postgresql"
-//   2. npm i @prisma/adapter-pg pg
-//   3. แทนบล็อกล่างด้วย:
-//        import { PrismaPg } from "@prisma/adapter-pg";
-//        const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-//   4. npx prisma migrate dev --name init-postgres
-// ───────────────────────────────────────────────────────────────
-
+// PostgreSQL ผ่าน driver adapter — บน Vercel ใช้ DATABASE_URL แบบ pooled (pgbouncer)
 const makeClient = () =>
   new PrismaClient({
-    adapter: new PrismaBetterSqlite3({
-      url: process.env.DATABASE_URL ?? "file:./dev.db",
-    }),
+    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
   });
 
 // ใช้ instance เดียวทั้งแอป ไม่ให้ hot-reload ของ Next สร้าง connection pool ซ้ำ
