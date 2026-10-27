@@ -35,9 +35,36 @@ for (const [code, label] of Object.entries(POSITION_LABEL)) {
   POSITION_ALIASES[label] = code as Position;
 }
 
-/** แยกคอลัมน์หนึ่งบรรทัด — วางจาก Excel จะคั่นด้วย tab, ไฟล์ CSV คั่นด้วย , และอาจมี "..." ครอบ */
+const DATE_PATTERN = /^(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4})$/;
+
+/**
+ * พิมพ์เองคั่นด้วยเว้นวรรค เช่น "สมศักดิ์ ใจดี 10 FW ไทย 1998-05-12"
+ * ชื่อมีเว้นวรรคได้ จึงดูจากชนิดคำแทน: ชื่อ = คำก่อนเบอร์/ตำแหน่ง ส่วนคำหลังจากนั้นจัดเข้าช่องตามหน้าตา
+ */
+function splitBySpaces(line: string): string[] {
+  const words = line.trim().split(/\s+/);
+  const isNumber = (w: string) => /^\d{1,3}$/.test(w);
+  const isPosition = (w: string) => w.toLowerCase() in POSITION_ALIASES;
+
+  let end = words.findIndex((w, i) => i > 0 && (isNumber(w) || isPosition(w) || DATE_PATTERN.test(w)));
+  if (end === -1) end = words.length;
+
+  const cells = [words.slice(0, end).join(" "), "", "", "", ""];
+  const rest: string[] = [];
+  for (const w of words.slice(end)) {
+    if (!cells[1] && isNumber(w)) cells[1] = w;
+    else if (!cells[2] && isPosition(w)) cells[2] = w;
+    else if (!cells[4] && DATE_PATTERN.test(w)) cells[4] = w;
+    else rest.push(w);
+  }
+  cells[3] = rest.join(" "); // คำที่เหลือถือเป็นสัญชาติ
+  return cells;
+}
+
+/** แยกคอลัมน์หนึ่งบรรทัด — วางจาก Excel จะคั่นด้วย tab, ไฟล์ CSV คั่นด้วย , และอาจมี "..." ครอบ, พิมพ์เองคั่นด้วยเว้นวรรค */
 function splitLine(line: string): string[] {
   if (line.includes("\t")) return line.split("\t").map((c) => c.trim());
+  if (!line.includes(",")) return splitBySpaces(line);
 
   const cells: string[] = [];
   let cell = "";
@@ -75,7 +102,7 @@ function parseDate(text: string): string | null | undefined {
 /** บรรทัดแรกเป็นหัวตารางหรือเปล่า (เช่น "ชื่อ, เบอร์, ...") */
 function isHeader(cells: string[]) {
   const first = cells[0]?.toLowerCase() ?? "";
-  return first === "ชื่อ" || first === "ชื่อ-สกุล" || first === "name";
+  return /^(ชื่อ|ชื่อ-สกุล|name)(\s|$)/.test(first);
 }
 
 export function parseRoster(text: string): RosterRow[] {

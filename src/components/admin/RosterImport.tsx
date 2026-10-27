@@ -91,14 +91,19 @@ export function RosterImport({ teamId, takenNumbers }: { teamId: string; takenNu
         ดาวน์โหลดไฟล์ตัวอย่าง
       </button>
 
-      <p className="text-center text-xs text-muted">— หรือก๊อปตารางจาก Excel / Google Sheets มาวางด้านล่าง —</p>
+      <p className="text-center text-xs text-muted">— หรือพิมพ์ / ก๊อปตารางจาก Excel มาวางด้านล่าง —</p>
+      <p className="rounded-lg bg-canvas px-3 py-2 text-xs text-muted">
+        พิมพ์เองได้ บรรทัดละ 1 คน เว้นวรรคคั่น: <span className="font-mono text-ink">ชื่อ เบอร์ ตำแหน่ง</span>
+        <br />
+        เช่น <span className="font-mono text-ink">สมศักดิ์ ใจดี 10 FW</span>
+      </p>
 
       <textarea
         name="text"
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={6}
-        placeholder={"สมศักดิ์ ใจดี\t10\tFW\tไทย\t1998-05-12\nวิชัย มือหนึ่ง\t1\tGK"}
+        placeholder={"สมศักดิ์ ใจดี 10 FW\nวิชัย มือหนึ่ง 1 GK\nทัด 7 กองกลาง"}
         className={`${inputClass} font-mono text-xs`}
       />
 
