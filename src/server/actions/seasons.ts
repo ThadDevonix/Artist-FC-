@@ -6,6 +6,7 @@ import { audit, requireRole } from "@/server/auth";
 import { teamHasResults } from "@/server/guards";
 import { generateRoundRobin } from "@/lib/fixtures";
 import { LOCKED_STATUSES } from "@/lib/labels";
+import { addDaysYmd, fromThaiDateTime, toThaiDate } from "@/lib/format";
 import {
   fixtureSchema,
   idSchema,
@@ -152,8 +153,9 @@ export async function generateFixturesAction(
   });
 
   const venues = new Map(season.teams.map((t) => [t.teamId, t.team.venue]));
-  const [hh, mm] = kickoffTime.split(":").map(Number);
-  const start = startDate ?? new Date();
+  // คิดวันเวลาตามเวลาไทย (เซิร์ฟเวอร์บน Vercel เป็น UTC — setHours จะเพี้ยน 7 ชม.)
+  const startYmd = toThaiDate(startDate ?? new Date());
+  const time = kickoffTime.padStart(5, "0");
 
   await db.match.deleteMany({
     where: { seasonId, status: { in: ["SCHEDULED", "POSTPONED", "CANCELLED"] } },
@@ -161,9 +163,7 @@ export async function generateFixturesAction(
 
   await db.match.createMany({
     data: pairs.map((p) => {
-      const date = new Date(start);
-      date.setDate(date.getDate() + (p.round - 1) * daysBetween);
-      date.setHours(hh ?? 19, mm ?? 0, 0, 0);
+      const date = fromThaiDateTime(addDaysYmd(startYmd, (p.round - 1) * daysBetween), time);
       return {
         seasonId,
         round: p.round,

@@ -51,6 +51,34 @@ export function toDateTimeLocal(date: Date | string) {
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
 }
 
+/**
+ * แปลงค่าจาก <input type="datetime-local"> หรือ วันที่ + เวลา เป็น Date ตามเวลาไทยเสมอ
+ *
+ * ทำไมต้องมี: new Date("2026-11-13T15:00") ตีความตามเขตเวลาของเครื่องเซิร์ฟเวอร์
+ * บน Vercel เป็น UTC → 15:00 กลายเป็น 22:00 น. เวลาไทย (บนเครื่องที่ตั้งเวลาไทยจะดูปกติ จึงหลุดง่าย)
+ * ไทยไม่มีเวลาออมแสง จึงต่อท้าย +07:00 ได้ตรง ๆ
+ */
+export function fromThaiDateTime(date: string, time = "00:00"): Date {
+  return new Date(`${date}T${time.length === 5 ? `${time}:00` : time}+07:00`);
+}
+
+/** วันที่ (YYYY-MM-DD) ตามเวลาไทย — ใช้เติมค่าใน <input type="date"> */
+export function toThaiDate(date: Date | string) {
+  return toDateTimeLocal(date).slice(0, 10);
+}
+
+/** เวลา (HH:mm) ตามเวลาไทย — ใช้เติมค่าใน <input type="time"> */
+export function toThaiTime(date: Date | string) {
+  return toDateTimeLocal(date).slice(11, 16);
+}
+
+/** เลื่อนวันที่ YYYY-MM-DD ไป n วัน (ไม่ขึ้นกับเขตเวลา) */
+export function addDaysYmd(ymd: string, days: number) {
+  const d = new Date(`${ymd}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 /** +7 / -3 / 0 */
 export function signed(n: number) {
   return n > 0 ? `+${n}` : String(n);

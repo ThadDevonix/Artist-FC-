@@ -10,6 +10,7 @@
 
 import { z } from "zod";
 import { EVENT_TYPES, POSITIONS, STAFF_ROLES } from "@/lib/labels";
+import { fromThaiDateTime } from "@/lib/format";
 import type { EventType, MatchStatus, Position, Role, StaffRole } from "@/generated/prisma/enums";
 
 export type ActionState = { error?: string; ok?: string };
@@ -68,7 +69,10 @@ const optionalDate = z
   .optional()
   .transform((v) => {
     const text = (v ?? "").trim();
-    return text ? new Date(text) : null;
+    if (!text) return null;
+    // วันที่+เวลาจาก datetime-local ไม่มีเขตเวลาติดมา → ถือเป็นเวลาไทย (ไม่งั้นบน Vercel จะเพี้ยน 7 ชม.)
+    const local = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}(?::\d{2})?)$/.exec(text);
+    return local ? fromThaiDateTime(local[1], local[2]) : new Date(text);
   })
   .refine((v) => v === null || !Number.isNaN(v.getTime()), "รูปแบบวันที่ไม่ถูกต้อง");
 
