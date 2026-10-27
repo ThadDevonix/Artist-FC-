@@ -96,7 +96,7 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
         )}
         {locked && (
           <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-            นัดนี้อนุมัติแล้ว หากต้องแก้ไขกรุณาแจ้งผู้ดูแลระบบ
+            {permission.reason ?? "นัดนี้อนุมัติแล้ว หากต้องแก้ไขกรุณาแจ้งผู้ดูแลระบบ"}
           </p>
         )}
       </Card>

@@ -29,6 +29,8 @@ type OfficialRef = { userId: string | null } | null;
 
 type MatchLike = {
   status: MatchStatus;
+  homeTeam: { name: string; isPlaceholder: boolean };
+  awayTeam: { name: string; isPlaceholder: boolean };
   referee: OfficialRef;
   assistant1: OfficialRef;
   assistant2: OfficialRef;
@@ -37,6 +39,8 @@ type MatchLike = {
 
 /** include ที่ต้องใส่ตอนดึงนัด เพื่อให้ matchPermission รู้ว่าบัญชีไหนอยู่ในทีมผู้ตัดสิน */
 export const matchOfficialsInclude = {
+  homeTeam: { select: { name: true, isPlaceholder: true } },
+  awayTeam: { select: { name: true, isPlaceholder: true } },
   referee: { select: { userId: true } },
   assistant1: { select: { userId: true } },
   assistant2: { select: { userId: true } },
@@ -51,13 +55,25 @@ export function isMatchOfficial(match: MatchLike, userId: string) {
 export const NOT_YOUR_MATCH = "คุณไม่ได้เป็นผู้ตัดสินของนัดนี้";
 export const ALREADY_APPROVED = "นัดนี้อนุมัติแล้ว แก้ไขได้เฉพาะผู้ดูแลระบบ";
 
+/** นัดที่ยังมีช่องทีมว่าง ("ทีม 3") — ยังไม่รู้ว่าเป็นสโมสรไหน จึงยังเริ่มแข่ง/บันทึกผลไม่ได้ */
+export function unfilledSlots(match: Pick<MatchLike, "homeTeam" | "awayTeam">): string | null {
+  const names = [match.homeTeam, match.awayTeam].filter((t) => t.isPlaceholder).map((t) => t.name);
+  return names.length ? `ยังไม่ได้ใส่สโมสรของ ${names.join(" และ ")} — ใส่ที่หน้าฤดูกาลก่อนจึงจะเริ่มแข่งหรือบันทึกผลได้` : null;
+}
+
 /**
  * สิทธิ์ของผู้ใช้คนนี้ต่อนัดนี้
  *
  * ผู้ดูแลระบบ — ทำได้ทุกอย่าง
  * กรรมการ     — เฉพาะนัดที่ตัวเองอยู่ในทีมผู้ตัดสิน และเฉพาะตอนที่ยังไม่อนุมัติ
+ * ทุกคน        — นัดที่ยังมีช่องทีมว่างเริ่มแข่ง/บันทึกผลไม่ได้ (แอดมินยังแก้วันเวลา สนาม ผู้ตัดสินได้)
  */
 export function matchPermission(session: Session, match: MatchLike): MatchPermission {
+  const unfilled = unfilledSlots(match);
+  if (unfilled) {
+    return { canEdit: false, canApprove: false, canManage: session.role === "ADMIN", reason: unfilled };
+  }
+
   if (session.role === "ADMIN") {
     return { canEdit: true, canApprove: true, canManage: true, reason: null };
   }

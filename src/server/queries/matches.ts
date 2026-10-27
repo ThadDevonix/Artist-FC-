@@ -145,8 +145,8 @@ export async function listMatchesForAdmin(
     },
     orderBy: [{ round: "asc" }, { kickoffAt: "asc" }],
     include: {
-      homeTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true } },
-      awayTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true } },
+      homeTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true, isPlaceholder: true } },
+      awayTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true, isPlaceholder: true } },
       referee: { select: { name: true } },
     },
   });
@@ -178,8 +178,8 @@ export async function listPendingMatches(seasonId: string, take = 8) {
     orderBy: { submittedAt: "desc" },
     take,
     include: {
-      homeTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true } },
-      awayTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true } },
+      homeTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true, isPlaceholder: true } },
+      awayTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true, isPlaceholder: true } },
       submittedBy: { select: { name: true } },
     },
   });
@@ -199,8 +199,8 @@ export async function listUpcomingMatches(
     orderBy: { kickoffAt: "asc" },
     take: options.take ?? 8,
     include: {
-      homeTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true } },
-      awayTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true } },
+      homeTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true, isPlaceholder: true } },
+      awayTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true, isPlaceholder: true } },
     },
   });
 }

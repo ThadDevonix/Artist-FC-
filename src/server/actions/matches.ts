@@ -2,7 +2,7 @@
 
 import { db } from "@/server/db";
 import { audit, requireRole, requireSession, type Session } from "@/server/auth";
-import { loadEditableMatch } from "@/server/guards";
+import { loadEditableMatch, unfilledSlots } from "@/server/guards";
 import { scoreFromEvents, syncLiveScore } from "@/server/live";
 import { fromThaiDateTime } from "@/lib/format";
 import {
@@ -182,9 +182,16 @@ export async function updateMatchAction(_prev: ActionState, formData: FormData):
   if (!parsed.ok) return { error: parsed.error };
   const { matchId, kickoffAt, venue, refereeId, assistant1Id, assistant2Id, fourthOfficialId, status } = parsed.data;
 
-  const before = await db.match.findUnique({ where: { id: matchId }, select: { status: true } });
+  const before = await db.match.findUnique({
+    where: { id: matchId },
+    select: { status: true, homeTeam: { select: { name: true, isPlaceholder: true } }, awayTeam: { select: { name: true, isPlaceholder: true } } },
+  });
+  if (!before) return { error: "ไม่พบนัดนี้" };
+  // ตั้งสถานะเป็นกำลังแข่ง/รออนุมัติ/จบแล้ว ต้องรู้ก่อนว่าทั้งสองฝั่งเป็นสโมสรไหน
+  const unfilled = unfilledSlots(before);
+  if (unfilled && status && !["SCHEDULED", "POSTPONED", "CANCELLED"].includes(status)) return { error: unfilled };
   // เลิกถ่ายทอด (กลับไปยังไม่แข่ง/เลื่อน/ยกเลิก) ต้องล้างสกอร์สด ไม่งั้นหน้าเว็บจะโชว์สกอร์ของเกมที่ยังไม่ได้แข่ง
-  const leftLive = before?.status === "LIVE" && status && ["SCHEDULED", "POSTPONED", "CANCELLED"].includes(status);
+  const leftLive = before.status === "LIVE" && status && ["SCHEDULED", "POSTPONED", "CANCELLED"].includes(status);
 
   await db.match.update({
     where: { id: matchId },
@@ -198,7 +205,7 @@ export async function updateMatchAction(_prev: ActionState, formData: FormData):
       ...(status ? { status } : {}),
       ...(leftLive ? { homeGoals: null, awayGoals: null, livePhase: null, phaseStartedAt: null } : {}),
       // ตั้งเป็น "กำลังแข่ง" จากฟอร์มนี้โดยตรง (ไม่ผ่านปุ่มเริ่มถ่ายทอด) → เริ่มนาฬิกาครึ่งแรกให้
-      ...(status === "LIVE" && before?.status !== "LIVE" ? { livePhase: "FIRST_HALF" as const, phaseStartedAt: new Date() } : {}),
+      ...(status === "LIVE" && before.status !== "LIVE" ? { livePhase: "FIRST_HALF" as const, phaseStartedAt: new Date() } : {}),
     },
   });
   await syncLiveScore(matchId);

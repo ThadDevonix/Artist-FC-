@@ -10,9 +10,11 @@ import type { MatchStatus } from "@/generated/prisma/enums";
 
 export const metadata = { title: "บันทึกผลการแข่งขัน" };
 
-/** ปุ่มของแต่ละนัด — ยังไม่เริ่มแข่ง = เริ่ม (สีส้ม) · เริ่มไปแล้วหรือจบแล้ว = แก้ไข */
-const notStarted = (status: string) => status === "SCHEDULED" || status === "POSTPONED";
-const actionLabel = (status: string) => (notStarted(status) ? "เริ่มการแข่งขัน" : "แก้ไขการแข่งขัน");
+/** ปุ่มของแต่ละนัด — ยังไม่เริ่มแข่ง = เริ่ม (สีส้ม) · เริ่มไปแล้วหรือจบแล้ว = แก้ไข · ยังมีช่องทีมว่าง = รอใส่สโมสร (สีเทา) */
+type Row = { status: string; homeTeam: { isPlaceholder: boolean }; awayTeam: { isPlaceholder: boolean } };
+const unfilled = (m: Row) => m.homeTeam.isPlaceholder || m.awayTeam.isPlaceholder;
+const notStarted = (m: Row) => m.status === "SCHEDULED" || m.status === "POSTPONED";
+const actionLabel = (m: Row) => (unfilled(m) ? "รอใส่สโมสร" : notStarted(m) ? "เริ่มการแข่งขัน" : "แก้ไขการแข่งขัน");
 
 /** สถานะที่ให้กรองได้บนหน้านี้ (ไม่รวม CANCELLED ที่ใช้น้อย) */
 const FILTERABLE: MatchStatus[] = ["SCHEDULED", "LIVE", "PENDING", "FINISHED", "POSTPONED"];
@@ -137,7 +139,9 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
                     <span className="truncate text-muted">
                       ผู้ตัดสิน {m.referee?.name ?? "—"}
                     </span>
-                    <span className={`shrink-0 font-medium ${notStarted(m.status) ? "text-brand" : "text-ink"}`}>{actionLabel(m.status)} →</span>
+                    <span className={`shrink-0 font-medium ${unfilled(m) ? "text-muted" : notStarted(m) ? "text-brand" : "text-ink"}`}>
+                      {actionLabel(m)}{!unfilled(m) && " →"}
+                    </span>
                   </div>
                 </Link>
               </li>
@@ -178,16 +182,25 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
                     <td className="hidden py-2.5 text-xs text-muted lg:table-cell">{m.referee?.name ?? "—"}</td>
                     <td className="py-2.5"><StatusPill status={m.status} /></td>
                     <td className="py-2.5 pr-4 text-right">
-                      <Link
-                        href={`/admin/matches/${m.id}`}
-                        className={`inline-block whitespace-nowrap rounded-lg border px-3 py-1 text-xs font-medium transition ${
-                          notStarted(m.status)
-                            ? "border-brand bg-brand text-white hover:opacity-90"
-                            : "border-line hover:border-brand hover:text-brand"
-                        }`}
-                      >
-                        {actionLabel(m.status)}
-                      </Link>
+                      {unfilled(m) ? (
+                        <span
+                          title="ใส่สโมสรของทั้งสองฝั่งที่หน้าฤดูกาลก่อน"
+                          className="inline-block cursor-not-allowed whitespace-nowrap rounded-lg border border-line bg-canvas px-3 py-1 text-xs font-medium text-muted"
+                        >
+                          {actionLabel(m)}
+                        </span>
+                      ) : (
+                        <Link
+                          href={`/admin/matches/${m.id}`}
+                          className={`inline-block whitespace-nowrap rounded-lg border px-3 py-1 text-xs font-medium transition ${
+                            notStarted(m)
+                              ? "border-brand bg-brand text-white hover:opacity-90"
+                              : "border-line hover:border-brand hover:text-brand"
+                          }`}
+                        >
+                          {actionLabel(m)}
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))}

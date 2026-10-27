@@ -71,6 +71,16 @@ async function main() {
     check("ยังไม่มีวันเวลา", (await count({ kickoffAt: null })) === 6);
     check("ช่องทีมไม่โผล่ในรายชื่อสโมสร", !(await (await fetch(`${BASE}/admin/teams`, { headers: { cookie } })).text()).includes("ทีม 3<"));
 
+    console.log("\n— นัดที่ยังมีช่องทีมว่าง —");
+    const open = await db.match.findFirstOrThrow({ where: { seasonId } });
+    const detail = await (await fetch(`${BASE}/admin/matches/${open.id}`, { headers: { cookie } })).text();
+    check("หน้านัดแจ้งให้ใส่สโมสรก่อน", detail.includes("ยังไม่ได้ใส่สโมสรของ"));
+    check("ไม่มีปุ่มเริ่มถ่ายทอดสด", !detail.includes("เริ่มถ่ายทอดสด"));
+    const list = await (await fetch(`${BASE}/admin/matches?season=${encodeURIComponent(season.slug)}`, { headers: { cookie } })).text();
+    check("รายการนัดขึ้น รอใส่สโมสร", list.includes("รอใส่สโมสร") && !list.includes("เริ่มการแข่งขัน"));
+    const forced = await post(`${BASE}/admin/matches/${open.id}`, "บันทึกรายละเอียด", { status: "FINISHED" });
+    check("ตั้งสถานะจบแล้วผ่านฟอร์มไม่ได้", forced.includes("ยังไม่ได้ใส่สโมสรของ") && (await db.match.findUniqueOrThrow({ where: { id: open.id } })).status === "SCHEDULED");
+
     console.log("\n— ใส่สโมสรลงช่อง —");
     const slot1 = s[0];
     const assigned = await post(page, `name="seasonTeamId" value="${slot1.id}"`, { teamId: clubs[0].id });
