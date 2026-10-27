@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, FormDots, POSITION_LABEL, TeamBadge, PlayerAvatar } from "@/components/ui";
+import { STAFF_GROUPS, staffRoleName } from "@/lib/labels";
 import { MatchList } from "@/components/MatchList";
 import {
   getActiveSeason,
@@ -9,34 +10,51 @@ import {
   getTeamBySlug,
   getTeamMatches,
   listTeamPlayers,
+  listTeamStaff,
 } from "@/server/queries";
-import { decodeParam, signed } from "@/lib/format";
+import { ageFrom, decodeParam, signed } from "@/lib/format";
 
 const ORDER = ["GK", "DF", "MF", "FW"] as const;
 
-export default async function TeamPage({ params }: PageProps<"/teams/[slug]">) {
+const TABS = [
+  { key: "all", label: "ทีมทั้งหมด" },
+  ...ORDER.map((pos) => ({ key: pos, label: POSITION_LABEL[pos] })),
+  { key: "staff", label: "ทีมงาน" },
+] as const;
+type Tab = (typeof TABS)[number]["key"];
+
+export default async function TeamPage({ params, searchParams }: PageProps<"/teams/[slug]">) {
   const slug = decodeParam((await params).slug);
+  const pos = (await searchParams).pos;
+  const tab: Tab = TABS.find((t) => t.key === pos)?.key ?? "all";
   const team = await getTeamBySlug(slug);
   if (!team) notFound();
 
   const season = await getActiveSeason();
   if (!season) return <p className="py-10 text-center text-muted">ยังไม่มีฤดูกาลในระบบ</p>;
 
-  const [{ rows }, matches, players, stats] = await Promise.all([
+  const [{ rows }, matches, players, stats, staff] = await Promise.all([
     getStandings(season.id),
     getTeamMatches(season.id, team.id),
     listTeamPlayers(team.id),
     getPlayerSeasonStats(season.id),
+    listTeamStaff(team.id),
   ]);
 
   const row = rows.find((r) => r.team.id === team.id);
   const played = matches.filter((m) => m.status === "FINISHED");
   const upcoming = matches.filter((m) => m.status !== "FINISHED");
 
-  const squad = ORDER.map((pos) => ({
-    pos,
-    list: players.filter((p) => p.position === pos),
+  const showPlayers = tab !== "staff";
+  const showStaff = tab === "all" || tab === "staff";
+  const squad = ORDER.filter((p) => tab === "all" || tab === p)
+    .map((p) => ({ pos: p, list: players.filter((pl) => pl.position === p) }))
+    .filter((g) => g.list.length > 0);
+  const staffGroups = STAFF_GROUPS.map((g) => ({
+    label: g.label,
+    list: staff.filter((m) => g.roles.includes(m.role)),
   })).filter((g) => g.list.length > 0);
+  const headCoach = staff.find((m) => m.role === "HEAD_COACH");
 
   return (
     <div className="space-y-6">
@@ -51,6 +69,13 @@ export default async function TeamPage({ params }: PageProps<"/teams/[slug]">) {
                   .filter(Boolean)
                   .join(" · ")}
               </p>
+              {headCoach && (
+                <p className="mt-2 flex items-center gap-2 text-sm">
+                  <PlayerAvatar name={headCoach.name} photoUrl={headCoach.photoUrl} color={team.color} color2={team.color2} size={24} />
+                  <span className="text-muted">หัวหน้าผู้ฝึกสอน</span>
+                  <span className="font-medium">{headCoach.name}</span>
+                </p>
+              )}
             </div>
           </div>
           {row && (
@@ -92,32 +117,88 @@ export default async function TeamPage({ params }: PageProps<"/teams/[slug]">) {
         </Card>
       </div>
 
-      <Card title={`ผู้เล่น (${players.length} คน)`}>
-        {squad.map((group) => (
-          <div key={group.pos}>
-            <h3 className="border-b border-line bg-canvas px-4 py-2 text-xs font-semibold text-muted sm:px-5">
-              {POSITION_LABEL[group.pos]}
-            </h3>
-            <ul>
-              {group.list.map((p) => {
-                const s = stats.get(p.id) ?? { goals: 0, assists: 0, yellow: 0, red: 0 };
-                return (
-                  <li key={p.id} className="flex items-center gap-3 border-b border-line px-3 py-2.5 last:border-0 sm:px-5">
-                    <span className="w-7 shrink-0 text-center text-sm text-muted tnum">{p.number ?? "—"}</span>
-                    <Link href={`/players/${p.slug}`} className="flex min-w-0 flex-1 items-center gap-2.5 text-sm font-medium hover:underline">
-                      <PlayerAvatar name={p.name} photoUrl={p.photoUrl} color={team.color} color2={team.color2} size={32} />
-                      <span className="truncate">{p.name}</span>
-                    </Link>
-                    {p.nationality && <span className="hidden shrink-0 text-xs text-muted sm:inline">{p.nationality}</span>}
-                    <span className="w-24 shrink-0 text-right text-xs text-muted tnum">
-                      {s.goals} ประตู · {s.assists} จ่าย
+      <Card
+        title={
+          <nav className="no-scrollbar -mx-1 flex gap-1 overflow-x-auto px-1 text-sm">
+            {TABS.map((t) => (
+              <Link
+                key={t.key}
+                href={t.key === "all" ? `/teams/${team.slug}` : `/teams/${team.slug}?pos=${t.key}`}
+                scroll={false}
+                className={`shrink-0 border-b-2 px-3 py-2 font-medium transition ${
+                  tab === t.key ? "border-brand text-brand" : "border-transparent text-muted hover:text-ink"
+                }`}
+              >
+                {t.label}
+              </Link>
+            ))}
+          </nav>
+        }
+      >
+        {showPlayers &&
+          squad.map((group) => (
+            <section key={group.pos}>
+              <h3 className="flex justify-between border-y border-line bg-canvas px-4 py-2 text-xs font-semibold text-muted sm:px-5">
+                <span>{POSITION_LABEL[group.pos]}</span>
+                <span className="flex gap-4">
+                  <span className="w-10 text-center">อายุ</span>
+                  <span className="w-10 text-center">ประตู</span>
+                </span>
+              </h3>
+              <ul>
+                {group.list.map((p) => {
+                  const s = stats.get(p.id);
+                  const age = ageFrom(p.birthDate);
+                  return (
+                    <li key={p.id} className="border-b border-line last:border-0">
+                      <Link href={`/players/${p.slug}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-canvas sm:px-5">
+                        <PlayerAvatar name={p.name} photoUrl={p.photoUrl} color={team.color} color2={team.color2} label={p.number} size={48} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-semibold">
+                            {p.name}
+                            {p.number !== null && <span className="ml-1 font-normal text-muted tnum">#{p.number}</span>}
+                          </span>
+                          {p.nationality && <span className="block truncate text-sm text-muted">{p.nationality}</span>}
+                        </span>
+                        <span className="flex shrink-0 gap-4 text-sm tnum">
+                          <span className="w-10 text-center">{age ?? "—"}</span>
+                          <span className="w-10 text-center font-semibold">{s?.goals || "—"}</span>
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+
+        {showStaff &&
+          staffGroups.map((group) => (
+            <section key={group.label}>
+              <h3 className="border-y border-line bg-canvas px-4 py-2 text-xs font-semibold text-muted sm:px-5">
+                {group.label}
+              </h3>
+              <ul>
+                {group.list.map((m) => (
+                  <li key={m.id} className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0 sm:px-5">
+                    <PlayerAvatar name={m.name} photoUrl={m.photoUrl} color={team.color} color2={team.color2} size={48} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold">{m.name}</span>
+                      <span className="block truncate text-sm text-muted">
+                        {[staffRoleName(m), m.nationality].filter(Boolean).join(" · ")}
+                      </span>
                     </span>
                   </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+                ))}
+              </ul>
+            </section>
+          ))}
+
+        {(showPlayers ? squad.length : 0) + (showStaff ? staffGroups.length : 0) === 0 && (
+          <p className="px-5 py-10 text-center text-sm text-muted">
+            {tab === "staff" ? "ยังไม่มีข้อมูลทีมงาน" : "ยังไม่มีผู้เล่นในตำแหน่งนี้"}
+          </p>
+        )}
       </Card>
     </div>
   );

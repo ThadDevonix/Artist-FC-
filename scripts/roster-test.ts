@@ -2,6 +2,7 @@
  * ทดสอบหน้า สโมสร/นักเตะ แบบ end-to-end ผ่าน HTTP จริง
  *   นำเข้ารายชื่อทั้งทีม → เข้าครบ · มีแถวผิด/เบอร์ซ้ำ → ไม่บันทึกเลยสักคน
  *   เพิ่มนักเตะทีละคน → เบอร์ซ้ำถูกปฏิเสธ · ไม่ระบุทีมถูกปฏิเสธ
+ *   ทีมงาน → เพิ่มได้ · "อื่นๆ" ต้องพิมพ์ชื่อตำแหน่ง · แสดงบนหน้าเว็บทีม
  * ใช้ทีมชั่วคราวที่ไม่อยู่ในฤดูกาลใด (ไม่โผล่บนหน้าเว็บ) แล้วลบทิ้งทุกครั้ง
  */
 import "dotenv/config";
@@ -81,9 +82,24 @@ async function main() {
 
     const noTeam = await submit(page, cookie, "position", { teamId: "", name: "ไร้สังกัด", position: "MF" });
     check("ไม่ระบุทีม → ถูกปฏิเสธ", !(await db.player.findFirst({ where: { name: "ไร้สังกัด" } })) && noTeam.includes("ต้องมีสังกัดทีม"));
+
+    console.log("\n— ทีมงาน —");
+    const staffPage = `${page}?tab=staff`;
+    const staffCount = () => db.staff.count({ where: { teamId: team.id } });
+    await submit(staffPage, cookie, "role", { teamId: team.id, name: "โค้ชทดสอบ", role: "HEAD_COACH", active: "on" });
+    check("เพิ่มหัวหน้าผู้ฝึกสอน", (await staffCount()) === 1);
+    const noLabel = await submit(staffPage, cookie, "role", { teamId: team.id, name: "ไม่มีชื่อตำแหน่ง", role: "OTHER", active: "on" });
+    check("\"อื่นๆ\" ไม่พิมพ์ชื่อตำแหน่ง → ถูกปฏิเสธ", (await staffCount()) === 1 && noLabel.includes("กรุณาพิมพ์ชื่อตำแหน่ง"));
+    await submit(staffPage, cookie, "role", { teamId: team.id, name: "นักวิเคราะห์", role: "OTHER", roleLabel: "นักวิเคราะห์เกม", active: "on" });
+    const analyst = await db.staff.findFirst({ where: { teamId: team.id, role: "OTHER" } });
+    check("\"อื่นๆ\" เก็บชื่อตำแหน่งที่พิมพ์", analyst?.roleLabel === "นักวิเคราะห์เกม");
+    const html = await (await fetch(`${BASE}/teams/${team.slug}?pos=staff`)).text();
+    check("หน้าเว็บทีมแสดงทีมงาน", html.includes("โค้ชทดสอบ") && html.includes("นักวิเคราะห์เกม"));
+    check("ทีมงานไม่โผล่ในรายชื่อนักเตะ", !(await db.player.findFirst({ where: { name: "โค้ชทดสอบ" } })));
   } finally {
+    const staffIds = (await db.staff.findMany({ where: { teamId: team.id }, select: { id: true } })).map((s) => s.id);
     const ids = (await db.player.findMany({ where: { teamId: team.id }, select: { id: true } })).map((p) => p.id);
-    await db.auditLog.deleteMany({ where: { entityId: { in: [team.id, ...ids] } } });
+    await db.auditLog.deleteMany({ where: { entityId: { in: [team.id, ...ids, ...staffIds] } } });
     await db.team.delete({ where: { id: team.id } }); // นักเตะถูกลบตาม (cascade)
     await db.$disconnect();
   }

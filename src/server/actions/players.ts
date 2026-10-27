@@ -4,6 +4,7 @@ import { db } from "@/server/db";
 import { audit, requireRole } from "@/server/auth";
 import { idSchema, parseForm, playerSchema, rosterImportSchema, type ActionState } from "@/server/validation";
 import { markDuplicateNumbers, parseRoster, ROSTER_MAX_ROWS } from "@/lib/roster-import";
+import { deletePhoto, uploadPhoto } from "@/server/photos";
 import { playerSlugTaken, refreshAll, slugify, uniqueSlug } from "./shared";
 
 /** เบอร์เสื้อที่นักเตะในทีม (ที่ยังอยู่ในทีม) ใช้อยู่ — ไม่นับคนที่กำลังแก้ไข */
@@ -23,7 +24,7 @@ export async function savePlayerAction(
 
   const parsed = parseForm(playerSchema, formData);
   if (!parsed.ok) return { error: parsed.error };
-  const { id, ...data } = parsed.data;
+  const { id, photoData, removePhoto, ...data } = parsed.data;
 
   if (!(await db.team.findUnique({ where: { id: data.teamId }, select: { id: true } }))) {
     return { error: "ไม่พบทีมที่เลือก" };
@@ -32,15 +33,31 @@ export async function savePlayerAction(
     return { error: `เบอร์ ${data.number} มีคนในทีมใช้อยู่แล้ว` };
   }
 
+  const existing = id ? await db.player.findUnique({ where: { id }, select: { slug: true, photoUrl: true } }) : null;
+  if (id && !existing) return { error: "ไม่พบนักเตะ" };
+  const slug = existing?.slug ?? (await uniqueSlug(slugify(data.name), playerSlugTaken));
+
+  // รูป: อัปโหลดใหม่ > กดลบรูป > คงรูปเดิม
+  let photoUrl = existing?.photoUrl ?? null;
+  if (photoData) {
+    try {
+      photoUrl = await uploadPhoto(photoData, `players/${slug}`);
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "อัปโหลดรูปไม่สำเร็จ" };
+    }
+  } else if (removePhoto) {
+    photoUrl = null;
+  }
+
   if (id) {
-    await db.player.update({ where: { id }, data });
+    await db.player.update({ where: { id }, data: { ...data, photoUrl } });
+    if (existing?.photoUrl !== photoUrl) await deletePhoto(existing?.photoUrl);
     await audit(session.userId, "PLAYER_UPDATE", "Player", id, { name: data.name });
     refreshAll();
     return { ok: "บันทึกข้อมูลนักเตะแล้ว" };
   }
 
-  const slug = await uniqueSlug(slugify(data.name), playerSlugTaken);
-  const player = await db.player.create({ data: { ...data, slug } });
+  const player = await db.player.create({ data: { ...data, photoUrl, slug } });
   await audit(session.userId, "PLAYER_CREATE", "Player", player.id, { name: data.name });
 
   refreshAll();
@@ -101,7 +118,8 @@ export async function deletePlayerAction(formData: FormData) {
   const parsed = parseForm(idSchema, formData);
   if (!parsed.ok) return;
 
-  await db.player.delete({ where: { id: parsed.data.id } });
+  const player = await db.player.delete({ where: { id: parsed.data.id } });
+  await deletePhoto(player.photoUrl);
   await audit(session.userId, "PLAYER_DELETE", "Player", parsed.data.id);
   refreshAll();
 }

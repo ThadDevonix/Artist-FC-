@@ -47,7 +47,7 @@ async function main() {
     "/", "/standings", `/standings?season=${season.slug}`,
     "/fixtures", "/fixtures?filter=results", "/fixtures?filter=upcoming", "/fixtures?round=2",
     "/stats", "/players", "/players?pos=FW", `/players?team=${team.slug}`,
-    `/teams/${team.slug}`, `/players/${encodeURIComponent(player.slug)}`,
+    `/teams/${team.slug}`, `/teams/${team.slug}?pos=GK`, `/teams/${team.slug}?pos=staff`, `/players/${encodeURIComponent(player.slug)}`,
     `/matches/${match.id}`, `/matches/${pendingMatch.id}`,
   ];
 
@@ -55,7 +55,7 @@ async function main() {
     "/admin", "/admin/matches", "/admin/matches?status=PENDING",
     `/admin/matches/${match.id}`, `/admin/matches/${pendingMatch.id}`,
     "/admin/seasons", "/admin/teams", "/admin/teams?q=a",
-    `/admin/teams/${team.id}`, `/admin/teams/${team.id}?edit=team`, `/admin/teams/${player.teamId}?player=${player.id}`,
+    `/admin/teams/${team.id}`, `/admin/teams/${team.id}?edit=team`, `/admin/teams/${team.id}?tab=staff`, `/admin/teams/${player.teamId}?player=${player.id}`,
     "/admin/users", "/admin/activity",
   ];
 

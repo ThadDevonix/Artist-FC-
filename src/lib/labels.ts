@@ -7,7 +7,7 @@
  * ไฟล์นี้ไม่พึ่งพาอะไรเลย (ไม่มี DB / React) เรียกใช้ได้ทั้งฝั่งเซิร์ฟเวอร์และเบราว์เซอร์
  */
 
-import type { EventType, MatchStatus, Position, Role } from "@/generated/prisma/enums";
+import type { EventType, MatchStatus, Position, Role, StaffRole } from "@/generated/prisma/enums";
 
 // ───────────────────────────── สถานะการแข่งขัน ─────────────────────────────
 
@@ -46,6 +46,36 @@ export const POSITION_LABEL: Record<Position, string> = {
 };
 
 export const POSITIONS: Position[] = ["GK", "DF", "MF", "FW"];
+
+// ───────────────────────────── ทีมงาน ─────────────────────────────
+
+export const STAFF_ROLE_LABEL: Record<StaffRole, string> = {
+  PRESIDENT: "ประธานสโมสร",
+  MANAGER: "ผู้จัดการทีม",
+  HEAD_COACH: "หัวหน้าผู้ฝึกสอน",
+  ASSISTANT_COACH: "ผู้ช่วยผู้ฝึกสอน",
+  GK_COACH: "โค้ชผู้รักษาประตู",
+  FITNESS_COACH: "โค้ชฟิตเนส",
+  DOCTOR: "แพทย์ประจำทีม",
+  PHYSIO: "นักกายภาพบำบัด",
+  TEAM_OFFICER: "เจ้าหน้าที่ทีม",
+  OTHER: "อื่นๆ",
+};
+
+/** กลุ่มทีมงาน เรียงตามลำดับที่แสดง — ลำดับ role ในกลุ่มก็คือลำดับการเรียงรายชื่อ */
+export const STAFF_GROUPS: { label: string; roles: StaffRole[] }[] = [
+  { label: "ผู้บริหาร", roles: ["PRESIDENT", "MANAGER"] },
+  { label: "ทีมโค้ช", roles: ["HEAD_COACH", "ASSISTANT_COACH", "GK_COACH", "FITNESS_COACH"] },
+  { label: "ทีมแพทย์", roles: ["DOCTOR", "PHYSIO"] },
+  { label: "อื่นๆ", roles: ["TEAM_OFFICER", "OTHER"] },
+];
+
+export const STAFF_ROLES: StaffRole[] = STAFF_GROUPS.flatMap((g) => g.roles);
+
+/** ชื่อตำแหน่งที่แสดง — "อื่นๆ" ใช้ชื่อที่พิมพ์เอง */
+export function staffRoleName(s: { role: StaffRole; roleLabel?: string | null }) {
+  return s.role === "OTHER" && s.roleLabel ? s.roleLabel : STAFF_ROLE_LABEL[s.role];
+}
 
 // ───────────────────────────── เหตุการณ์ในเกม ─────────────────────────────
 
@@ -91,6 +121,9 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   PLAYER_UPDATE: "แก้ไขนักเตะ",
   PLAYER_DELETE: "ลบนักเตะ",
   PLAYER_IMPORT: "นำเข้ารายชื่อนักเตะ",
+  STAFF_CREATE: "เพิ่มทีมงาน",
+  STAFF_UPDATE: "แก้ไขทีมงาน",
+  STAFF_DELETE: "ลบทีมงาน",
   SEASON_CREATE: "สร้างฤดูกาล",
   SEASON_UPDATE: "แก้ไขฤดูกาล",
   SEASON_ACTIVATE: "เปลี่ยนฤดูกาลที่ใช้งาน",

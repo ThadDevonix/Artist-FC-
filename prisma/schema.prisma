@@ -88,6 +88,7 @@ model Team {
   updatedAt DateTime @updatedAt
 
   players     Player[]
+  staff       Staff[]
   seasons     SeasonTeam[]
   homeMatches Match[]      @relation("HomeTeam")
   awayMatches Match[]      @relation("AwayTeam")
@@ -111,6 +112,37 @@ enum Position {
   DF
   MF
   FW
+}
+
+// ทีมงาน (โค้ช ผู้จัดการ แพทย์ ฯลฯ) — แยกจากนักเตะ เพราะไม่มีเบอร์เสื้อ ไม่ลงสถิติ ไม่ถูกเลือกเป็นผู้ทำประตู
+enum StaffRole {
+  PRESIDENT
+  MANAGER
+  HEAD_COACH
+  ASSISTANT_COACH
+  GK_COACH
+  FITNESS_COACH
+  DOCTOR
+  PHYSIO
+  TEAM_OFFICER
+  OTHER
+}
+
+model Staff {
+  id          String    @id @default(cuid())
+  teamId      String
+  name        String
+  role        StaffRole
+  roleLabel   String? // ใช้เมื่อ role = OTHER ให้พิมพ์ชื่อตำแหน่งเอง
+  photoUrl    String?
+  nationality String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
 }
 
 model Player {

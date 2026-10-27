@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/server/db";
 import { audit, requireRole } from "@/server/auth";
 import { teamHasResults } from "@/server/guards";
+import { deletePhoto } from "@/server/photos";
 import { idSchema, parseForm, teamSchema, type ActionState } from "@/server/validation";
 import { refreshAll, slugify, teamSlugTaken, uniqueSlug } from "./shared";
 
@@ -59,8 +60,11 @@ export async function deleteTeamAction(formData: FormData) {
   // มีผลแข่งที่นับคะแนนแล้ว ลบไม่ได้ ไม่งั้นตารางคะแนนย้อนหลังจะเพี้ยน
   if (await teamHasResults(parsed.data.id)) return;
 
-  // นักเตะในทีมถูกลบตามไปด้วย (onDelete: Cascade) เพราะนักเตะต้องมีสังกัดเสมอ
+  // นักเตะและทีมงานถูกลบตามไปด้วย (onDelete: Cascade) เพราะต้องมีสังกัดเสมอ — เก็บรูปไว้ลบตามทีหลัง
+  const withPhoto = { where: { teamId: parsed.data.id, photoUrl: { not: null } }, select: { photoUrl: true } } as const;
+  const photos = [...(await db.player.findMany(withPhoto)), ...(await db.staff.findMany(withPhoto))];
   await db.team.delete({ where: { id: parsed.data.id } });
+  await Promise.all(photos.map((p) => deletePhoto(p.photoUrl)));
   await audit(session.userId, "TEAM_DELETE", "Team", parsed.data.id);
   refreshAll();
   redirect("/admin/teams");

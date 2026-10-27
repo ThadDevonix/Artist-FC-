@@ -25,6 +25,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "@vercel/blob": "^2.8.2",
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.9",
     "jose": "^6.2.13",
@@ -48,5 +49,10 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@vercel/cli-config": {
+      "zod": "$zod"
+    }
   }
 }

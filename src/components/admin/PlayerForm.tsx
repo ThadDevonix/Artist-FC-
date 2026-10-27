@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ActionForm, Field, SubmitButton, inputClass } from "@/components/admin/Form";
 import { POSITION_LABEL } from "@/components/ui";
 import { POSITIONS } from "@/lib/labels";
+import { PlayerPhotoInput } from "@/components/admin/PlayerPhotoInput";
 import { savePlayerAction } from "@/server/actions";
 import type { Player } from "@/generated/prisma/client";
 
@@ -14,8 +15,12 @@ export function PlayerForm({
   player,
   teams,
   cancelHref,
+  color,
+  color2,
 }: {
   teamId: string;
+  color: string;
+  color2: string | null;
   player?: Player | null;
   teams: { id: string; name: string }[];
   cancelHref: string;
@@ -23,6 +28,8 @@ export function PlayerForm({
   return (
     <ActionForm action={savePlayerAction} className="space-y-3" key={player?.id ?? "new"}>
       {player && <input type="hidden" name="id" value={player.id} />}
+
+      <PlayerPhotoInput name={player?.name ?? ""} currentUrl={player?.photoUrl ?? null} color={color} color2={color2} />
 
       <Field label="ชื่อ-สกุล">
         <input name="name" defaultValue={player?.name ?? ""} required autoFocus={!!player} className={inputClass} />
@@ -58,9 +65,6 @@ export function PlayerForm({
           <input type="date" name="birthDate" defaultValue={player?.birthDate?.toISOString().slice(0, 10) ?? ""} className={inputClass} />
         </Field>
       </div>
-      <Field label="URL รูปภาพ">
-        <input name="photoUrl" defaultValue={player?.photoUrl ?? ""} className={inputClass} placeholder="https://…" />
-      </Field>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="active" defaultChecked={player?.active ?? true} className="size-4" />
         ยังอยู่ในทีม (แสดงบนหน้าเว็บ)

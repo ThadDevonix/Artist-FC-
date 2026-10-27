@@ -9,8 +9,8 @@
  */
 
 import { z } from "zod";
-import { EVENT_TYPES, POSITIONS } from "@/lib/labels";
-import type { EventType, MatchStatus, Position, Role } from "@/generated/prisma/enums";
+import { EVENT_TYPES, POSITIONS, STAFF_ROLES } from "@/lib/labels";
+import type { EventType, MatchStatus, Position, Role, StaffRole } from "@/generated/prisma/enums";
 
 export type ActionState = { error?: string; ok?: string };
 
@@ -116,6 +116,10 @@ export const positionEnum = z.enum(
 
 export const roleEnum = z.enum(["ADMIN", "REFEREE"]) satisfies z.ZodType<Role>;
 
+export const staffRoleEnum = z.enum(
+  STAFF_ROLES as [StaffRole, ...StaffRole[]],
+) satisfies z.ZodType<StaffRole>;
+
 /** อ่านค่าจาก query string ให้ปลอดภัย — ค่าที่ไม่รู้จักจะได้ undefined */
 export function parseEnumParam<T extends string>(
   schema: z.ZodType<T>,
@@ -191,10 +195,28 @@ export const playerSchema = z.object({
   ),
   position: positionEnum.default("MF"),
   nationality: optionalText,
-  photoUrl: optionalText,
+  photoData: optionalText, // รูปใหม่ที่ย่อจากเบราว์เซอร์แล้ว (data URL)
+  removePhoto: checkbox,
   birthDate: optionalDate,
   active: checkbox,
 });
+
+export const staffSchema = z
+  .object({
+    id: optionalText,
+    teamId: required("ทีมงานต้องมีสังกัดทีม"),
+    name: required("กรุณากรอกชื่อ"),
+    role: staffRoleEnum,
+    roleLabel: optionalText,
+    nationality: optionalText,
+    photoData: optionalText,
+    removePhoto: checkbox,
+    active: checkbox,
+  })
+  .refine((v) => v.role !== "OTHER" || v.roleLabel, {
+    message: "เลือก \"อื่นๆ\" แล้วกรุณาพิมพ์ชื่อตำแหน่ง",
+    path: ["roleLabel"],
+  });
 
 export const rosterImportSchema = z.object({
   teamId: required("ไม่พบทีม"),

@@ -12,3 +12,4 @@ export * from "./standings";
 export * from "./stats";
 export * from "./users";
 export * from "./audit";
+export * from "./staff";
