@@ -1,6 +1,7 @@
 /**
  * ทดสอบการจัดวันเวลาแข่ง + เขตเวลา ผ่าน HTTP จริง
- *   สร้างตารางแข่ง 19:00 → เก็บเป็น 12:00 UTC (เวลาไทย) · จัดวันเวลาหลายคู่คนละวันในหน้าเดียว
+ *   สร้างตารางแข่งทุกจันทร์/ศุกร์ 19:00 → คู่กระจายตามวัน เก็บเป็น 12:00 UTC (เวลาไทย)
+ *   จัดวันเวลาหลายคู่คนละวันในหน้าเดียว
  *   แก้วันเวลาในรายละเอียดนัด → ตีความเป็นเวลาไทย
  * ควรรันกับเซิร์ฟเวอร์ที่ตั้ง TZ=UTC (แบบ Vercel) — บนเครื่องที่ตั้งเวลาไทย บั๊กเขตเวลาจะไม่โผล่
  * ใช้ฤดูกาล/ทีมชั่วคราว แล้วลบทิ้งใน finally เสมอ
@@ -44,18 +45,29 @@ async function main() {
     loginBody.append("email", "admin@artistfc.local");
     loginBody.append("password", "admin1234");
     const cookie = ((await fetch(`${BASE}/admin/login`, { method: "POST", body: loginBody, redirect: "manual" })).headers.get("set-cookie") ?? "").split(";")[0];
-    const post = async (url: string, marker: string, fields: Record<string, string>) => {
+    const post = async (url: string, marker: string, fields: Record<string, string | string[]>) => {
       const body = actionFields(await (await fetch(url, { headers: { cookie } })).text(), marker);
-      for (const [k, v] of Object.entries(fields)) body.set(k, v);
+      for (const [k, v] of Object.entries(fields)) {
+        body.delete(k);
+        for (const one of Array.isArray(v) ? v : [v]) body.append(k, one);
+      }
       return (await fetch(url, { method: "POST", body, headers: { cookie }, redirect: "manual" })).text();
     };
 
     console.log("\n— สร้างตารางแข่ง —");
+    // แข่งทุกจันทร์กับศุกร์ 19:00 — 4 ทีม = นัดละ 2 คู่ → คู่แรกจันทร์ คู่ที่สองศุกร์
     await post(`${BASE}/admin/seasons?season=${season.slug}`, "สร้างตารางแข่ง", {
-      startDate: "2026-11-16", kickoffTime: "19:00", daysBetween: "7", rounds: "1",
+      startDate: "2026-11-16", weekdays: ["1", "5"], kickoffTimes: "19:00", weeksBetween: "1", rounds: "1",
     });
-    const first = await db.match.findFirst({ where: { seasonId: season.id, round: 1 }, orderBy: { kickoffAt: "asc" } });
-    check("19:00 เวลาไทย เก็บเป็น 12:00 UTC", first?.kickoffAt.toISOString() === "2026-11-16T12:00:00.000Z", first?.kickoffAt.toISOString());
+    const r1 = await db.match.findMany({ where: { seasonId: season.id, round: 1 }, orderBy: { kickoffAt: "asc" } });
+    const r2 = await db.match.findMany({ where: { seasonId: season.id, round: 2 }, orderBy: { kickoffAt: "asc" } });
+    check("19:00 เวลาไทย เก็บเป็น 12:00 UTC (จันทร์ 16)", r1[0]?.kickoffAt.toISOString() === "2026-11-16T12:00:00.000Z", r1[0]?.kickoffAt.toISOString());
+    check("คู่ที่สองของนัด 1 ไปวันศุกร์ 20", r1[1]?.kickoffAt.toISOString() === "2026-11-20T12:00:00.000Z", r1[1]?.kickoffAt.toISOString());
+    check("นัด 2 สัปดาห์ถัดไป (จันทร์ 23)", r2[0]?.kickoffAt.toISOString() === "2026-11-23T12:00:00.000Z", r2[0]?.kickoffAt.toISOString());
+    const noDay = await post(`${BASE}/admin/seasons?season=${season.slug}`, "สร้างตารางแข่ง", {
+      startDate: "2026-11-16", kickoffTimes: "19:00", rounds: "1",
+    });
+    check("ไม่เลือกวันแข่ง → แจ้งเตือน", noDay.includes("กรุณาเลือกวันที่แข่ง"));
 
     console.log("\n— จัดวันเวลาหลายคู่ในหน้าเดียว —");
     const round1 = await db.match.findMany({ where: { seasonId: season.id, round: 1 }, orderBy: { id: "asc" } });

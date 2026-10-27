@@ -6,7 +6,8 @@ import { audit, requireRole } from "@/server/auth";
 import { teamHasResults } from "@/server/guards";
 import { generateRoundRobin } from "@/lib/fixtures";
 import { LOCKED_STATUSES } from "@/lib/labels";
-import { addDaysYmd, fromThaiDateTime, toThaiDate } from "@/lib/format";
+import { fromThaiDateTime, toThaiDate } from "@/lib/format";
+import { scheduleRounds } from "@/lib/fixtures";
 import {
   fixtureSchema,
   idSchema,
@@ -129,7 +130,14 @@ export async function generateFixturesAction(
 
   const parsed = parseForm(fixtureSchema, formData);
   if (!parsed.ok) return { error: parsed.error };
-  const { seasonId, startDate, kickoffTime, daysBetween, rounds, shuffle } = parsed.data;
+  const { seasonId, startDate, kickoffTimes, weeksBetween, rounds, shuffle } = parsed.data;
+
+  // checkbox หลายช่องชื่อเดียวกัน — zod อ่านได้ทีละค่า จึงดึงตรงจาก FormData (0 = อาทิตย์ … 6 = เสาร์)
+  const weekdays = formData
+    .getAll("weekdays")
+    .map((v) => Number(v))
+    .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+  if (weekdays.length === 0) return { error: "กรุณาเลือกวันที่แข่งอย่างน้อย 1 วัน" };
 
   const season = await db.season.findUnique({
     where: { id: seasonId },
@@ -155,7 +163,7 @@ export async function generateFixturesAction(
   const venues = new Map(season.teams.map((t) => [t.teamId, t.team.venue]));
   // คิดวันเวลาตามเวลาไทย (เซิร์ฟเวอร์บน Vercel เป็น UTC — setHours จะเพี้ยน 7 ชม.)
   const startYmd = toThaiDate(startDate ?? new Date());
-  const time = kickoffTime.padStart(5, "0");
+  const kickoff = scheduleRounds(pairs, { startYmd, weekdays, times: kickoffTimes, weeksBetween });
 
   await db.match.deleteMany({
     where: { seasonId, status: { in: ["SCHEDULED", "POSTPONED", "CANCELLED"] } },
@@ -163,13 +171,13 @@ export async function generateFixturesAction(
 
   await db.match.createMany({
     data: pairs.map((p) => {
-      const date = fromThaiDateTime(addDaysYmd(startYmd, (p.round - 1) * daysBetween), time);
+      const [date, time] = kickoff.get(p)!;
       return {
         seasonId,
         round: p.round,
         homeTeamId: p.homeTeamId,
         awayTeamId: p.awayTeamId,
-        kickoffAt: date,
+        kickoffAt: fromThaiDateTime(date, time),
         venue: venues.get(p.homeTeamId) ?? null,
         status: "SCHEDULED" as const,
       };

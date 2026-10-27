@@ -8,6 +8,8 @@
  * ทีมที่จับคู่กับ BYE ในนัดนั้นจะได้พัก
  */
 
+import { addDaysYmd } from "@/lib/format";
+
 export type FixturePair = {
   round: number; // นัดที่เท่าไหร่ (เริ่มที่ 1)
   homeTeamId: string;
@@ -100,4 +102,39 @@ function shuffle<T>(input: T[], seed: number): T[] {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+/**
+ * จัดวันเวลาให้ทุกคู่ แบบลีกจริง (เช่นพรีเมียร์ลีก): 1 นัดต่อ 1 ช่วงสัปดาห์ แล้วกระจายคู่ไปตามวันที่แข่ง
+ *
+ * - นัดที่ r อยู่ในช่วง 7 วันที่เริ่มจาก startYmd + (r-1) × weeksBetween สัปดาห์
+ * - ในช่วงนั้น เลือกเฉพาะวันที่ตรงกับ weekdays (0 = อาทิตย์ … 6 = เสาร์) เรียงตามวันที่
+ * - คู่ในนัดแบ่งลงวันให้ใกล้เคียงกัน (วันแรก ๆ ได้ก่อนถ้าหารไม่ลงตัว)
+ * - ในวันเดียวกันไล่ใช้เวลาตาม times · คู่เกินจำนวนเวลา → วนกลับใช้เวลาแรก (หลายสนามเตะพร้อมกัน)
+ * แต่ละทีมเตะนัดละครั้ง จึงไม่มีทีมไหนเตะ 2 ครั้งในวันเดียว
+ *
+ * คืน Map จากคู่ → [วันที่ YYYY-MM-DD, เวลา HH:mm] (ตามเวลาไทย)
+ */
+export function scheduleRounds<T extends { round: number }>(
+  pairs: T[],
+  { startYmd, weekdays, times, weeksBetween = 1 }: { startYmd: string; weekdays: number[]; times: string[]; weeksBetween?: number },
+): Map<T, [string, string]> {
+  const out = new Map<T, [string, string]>();
+  const byRound = new Map<number, T[]>();
+  for (const p of pairs) byRound.set(p.round, [...(byRound.get(p.round) ?? []), p]);
+
+  for (const [round, list] of byRound) {
+    const weekStart = addDaysYmd(startYmd, (round - 1) * 7 * weeksBetween);
+    const days = Array.from({ length: 7 }, (_, i) => addDaysYmd(weekStart, i)).filter((d) =>
+      weekdays.includes(new Date(`${d}T00:00:00Z`).getUTCDay()),
+    );
+    const perDay = new Map<string, number>();
+    list.forEach((p, i) => {
+      const day = days[Math.floor((i * days.length) / list.length)];
+      const k = perDay.get(day) ?? 0;
+      perDay.set(day, k + 1);
+      out.set(p, [day, times[k % times.length]]);
+    });
+  }
+  return out;
 }

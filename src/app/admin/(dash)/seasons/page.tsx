@@ -20,11 +20,23 @@ import {
   seasonTeamIds,
 } from "@/server/queries";
 import { fixtureSummary } from "@/lib/fixtures";
+import { toThaiDate } from "@/lib/format";
 import { parseTiebreakers, TIEBREAKER_LABELS, type Tiebreaker } from "@/lib/standings";
 
 export const metadata = { title: "ฤดูกาล" };
 
 const ALL_TIEBREAKERS = Object.keys(TIEBREAKER_LABELS) as Tiebreaker[];
+
+/** วันในสัปดาห์ เรียงแบบไทย (จันทร์ก่อน) — value ตาม Date.getDay(): 0 = อาทิตย์ */
+const WEEKDAYS = [
+  { value: 1, label: "จ" },
+  { value: 2, label: "อ" },
+  { value: 3, label: "พ" },
+  { value: 4, label: "พฤ" },
+  { value: 5, label: "ศ" },
+  { value: 6, label: "ส" },
+  { value: 0, label: "อา" },
+];
 
 export default async function SeasonsPage({ searchParams }: PageProps<"/admin/seasons">) {
   await requireRole("ADMIN");
@@ -220,23 +232,32 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
                   {preview.hasBye && <span className="block text-xs text-muted">จำนวนทีมเป็นเลขคี่ — แต่ละนัดจะมี 1 ทีมได้พัก</span>}
                 </p>
 
-                <p className="text-xs text-muted">
-                  วันเวลาด้านล่างเป็นแค่ค่าตั้งต้น — สร้างแล้วไปจัดวันจริงของแต่ละคู่ได้ที่{" "}
-                  <Link href="/admin/schedule" className="text-brand hover:underline">จัดวันเวลาแข่ง</Link>
-                </p>
+                <Field label="วันเริ่มฤดูกาล" hint="นัดที่ 1 อยู่ใน 7 วันนับจากวันนี้ นัดถัดไปเลื่อนไปทีละสัปดาห์">
+                  <input type="date" name="startDate" defaultValue={season.startDate ? toThaiDate(season.startDate) : ""} className={inputClass} />
+                </Field>
+
+                <fieldset>
+                  <legend className="mb-1 text-sm font-medium">วันที่แข่ง</legend>
+                  <div className="flex flex-wrap gap-1.5">
+                    {WEEKDAYS.map((d) => (
+                      <label key={d.value} className="cursor-pointer">
+                        <input type="checkbox" name="weekdays" value={d.value} className="peer sr-only" />
+                        <span className="inline-flex size-10 items-center justify-center rounded-full border border-line text-sm font-medium text-muted transition peer-checked:border-brand peer-checked:bg-brand peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-brand">
+                          {d.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <span className="mt-1 block text-xs text-muted">คู่ในแต่ละนัดจะกระจายลงวันที่เลือกในสัปดาห์นั้น (แบบพรีเมียร์ลีก)</span>
+                </fieldset>
+
+                <Field label="เวลาเตะ" hint="ใส่ได้หลายเวลา คั่นด้วยลูกน้ำ — คู่ในวันเดียวกันไล่ใช้ตามลำดับ (สนามเดียว ให้ใส่เวลาพอกับจำนวนคู่ต่อวัน)">
+                  <input name="kickoffTimes" defaultValue="19:00, 20:30" className={inputClass} placeholder="19:00, 20:30" />
+                </Field>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="วันแข่งนัดแรก">
-                    <input type="date" name="startDate" defaultValue={season.startDate?.toISOString().slice(0, 10) ?? ""} className={inputClass} />
-                  </Field>
-                  <Field label="เวลาเริ่มแข่ง">
-                    <input type="time" name="kickoffTime" defaultValue="19:00" className={inputClass} />
-                  </Field>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="เว้นระยะกี่วันต่อนัด">
-                    <input type="number" name="daysBetween" min={1} defaultValue={7} className={inputClass} />
+                  <Field label="แต่ละนัดห่างกัน (สัปดาห์)">
+                    <input type="number" name="weeksBetween" min={1} max={8} defaultValue={1} className={inputClass} />
                   </Field>
                   <Field label="รูปแบบ">
                     <select name="rounds" defaultValue={season.rounds} className={inputClass}>
@@ -250,6 +271,11 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
                   <input type="checkbox" name="shuffle" className="size-4" />
                   สุ่มลำดับทีมก่อนจับคู่
                 </label>
+
+                <p className="text-xs text-muted">
+                  คู่ไหนต้องย้ายวัน/เวลา แก้ทีหลังได้ที่{" "}
+                  <Link href="/admin/schedule" className="text-brand hover:underline">จัดวันเวลาแข่ง</Link>
+                </p>
 
                 <SubmitButton
                   confirm={

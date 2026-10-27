@@ -278,12 +278,20 @@ export const seasonSchema = z.object({
 export const fixtureSchema = z.object({
   seasonId: required("ไม่พบฤดูกาล"),
   startDate: optionalDate,
-  kickoffTime: z
+  // เวลาเตะหลายเวลา คั่นด้วยลูกน้ำ เช่น "19:00, 20:30" — คู่ในวันเดียวกันไล่ใช้ตามลำดับ
+  kickoffTimes: z
     .string()
     .optional()
-    .transform((v) => (v ?? "").trim() || "19:00")
-    .refine((v) => /^\d{1,2}:\d{2}$/.test(v), "รูปแบบเวลาไม่ถูกต้อง"),
-  daysBetween: intWithDefault(7, 1, 60, "ระยะห่างต้องอยู่ระหว่าง 1–60 วัน"),
+    .transform((v) =>
+      (v ?? "")
+        .split(/[,\s]+/)
+        .map((t) => t.trim().replace(".", ":"))
+        .filter(Boolean)
+        .map((t) => (/^\d:\d{2}$/.test(t) ? `0${t}` : t)),
+    )
+    .refine((v) => v.length > 0, "กรุณาใส่เวลาเตะอย่างน้อย 1 เวลา")
+    .refine((v) => v.every((t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t)), "รูปแบบเวลาไม่ถูกต้อง (เช่น 19:00, 20:30)"),
+  weeksBetween: intWithDefault(1, 1, 8, "แต่ละนัดห่างกันได้ 1–8 สัปดาห์"),
   rounds: z
     .string()
     .optional()
