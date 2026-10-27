@@ -3,6 +3,7 @@ import { SeasonSelect } from "@/components/SeasonSelect";
 import { StandingsTable, ZoneLegend } from "@/components/StandingsTable";
 import { StatLeadersPanel } from "@/components/StatLeaders";
 import { getSeasonBySlug, getStandings, listSeasons } from "@/server/queries";
+import { liveMovement } from "@/lib/standings";
 
 export const metadata = { title: "ตารางคะแนน" };
 
@@ -17,7 +18,12 @@ export default async function StandingsPage({ searchParams }: PageProps<"/standi
     return <p className="py-10 text-center text-muted">ยังไม่มีฤดูกาลในระบบ</p>;
   }
 
-  const { rows, zones } = await getStandings(season.id);
+  const { rows, zones, live } = await getStandings(season.id);
+  // มีนัดกำลังแข่ง → เทียบกับอันดับก่อนเกม เพื่อโชว์ ▲▼ ว่าใครขยับจากนัดที่กำลังแข่ง
+  const hasLive = Object.keys(live).length > 0;
+  const movement = hasLive
+    ? liveMovement((await getStandings(season.id, { includeLive: false })).rows, rows)
+    : undefined;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -32,7 +38,7 @@ export default async function StandingsPage({ searchParams }: PageProps<"/standi
             />
           </div>
           <div className="mt-3">
-            <StandingsTable rows={rows} zones={zones} />
+            <StandingsTable rows={rows} zones={zones} live={live} movement={movement} />
           </div>
           <ZoneLegend zones={zones} />
         </Card>

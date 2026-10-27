@@ -50,6 +50,8 @@ function findOverflow(markup: string): string[] {
 
   // ตารางต้องอยู่ในกล่องที่เลื่อนได้เสมอ เผื่อเนื้อหายาวผิดคาด
   for (const m of markup.matchAll(/<table[^>]*>/g)) {
+    // <table hidden> คือก้อน HTML ที่ React ส่งตามมาทีหลังตอน stream (แล้วย้ายเข้าที่จริงด้วย $RS) ไม่ใช่ตารางที่แสดงผล
+    if (/^<table hidden/.test(m[0])) continue;
     const before = markup.slice(Math.max(0, m.index - 300), m.index);
     if (!/overflow-x-auto|overflow-auto/.test(before)) {
       problems.push(`<table> ไม่ได้อยู่ในกล่องที่เลื่อนแนวนอนได้`);

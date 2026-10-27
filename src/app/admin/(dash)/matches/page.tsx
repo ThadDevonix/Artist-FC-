@@ -1,16 +1,17 @@
 import Link from "next/link";
 import { Card, StatusPill, TeamBadge } from "@/components/ui";
 import { requireSession } from "@/server/auth";
-import { getSeasonBySlug, listMatchesForAdmin, listRounds, listSeasons } from "@/server/queries";
+import { getSeasonBySlug, listMatchesForAdmin, listRoundOptions, listSeasons } from "@/server/queries";
+import { RoundPicker } from "@/components/RoundPicker";
 import { thaiDateTime } from "@/lib/format";
 import { MATCH_STATUS_LABEL } from "@/lib/labels";
 import { matchStatusEnum, parseEnumParam } from "@/server/validation";
 import type { MatchStatus } from "@/generated/prisma/enums";
 
-export const metadata = { title: "บันทึกผล" };
+export const metadata = { title: "บันทึกผลการแข่งขัน" };
 
-/** สถานะที่ให้กรองได้บนหน้านี้ (ไม่รวม LIVE/CANCELLED ที่ใช้น้อย) */
-const FILTERABLE: MatchStatus[] = ["SCHEDULED", "PENDING", "FINISHED", "POSTPONED"];
+/** สถานะที่ให้กรองได้บนหน้านี้ (ไม่รวม CANCELLED ที่ใช้น้อย) */
+const FILTERABLE: MatchStatus[] = ["SCHEDULED", "LIVE", "PENDING", "FINISHED", "POSTPONED"];
 
 export default async function AdminMatchesPage({ searchParams }: PageProps<"/admin/matches">) {
   const sp = await searchParams;
@@ -25,7 +26,7 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
   const round = typeof sp.round === "string" ? Number(sp.round) : undefined;
   const mine = sp.mine === "1" || !admin;
 
-  const rounds = await listRounds(season.id);
+  const rounds = await listRoundOptions(season.id);
 
   const matches = await listMatchesForAdmin(season.id, {
     status,
@@ -70,14 +71,12 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
         )}
       </div>
 
-      <div className="no-scrollbar -mx-3 flex gap-2 overflow-x-auto px-3 sm:mx-0 sm:px-0">
-        <Chip href={link({ round: undefined })} active={!round}>ทุกนัด</Chip>
-        {rounds.map((r) => (
-          <Chip key={r} href={link({ round: String(r) })} active={round === r}>
-            นัดที่ {r}
-          </Chip>
-        ))}
-      </div>
+      <RoundPicker
+        rounds={rounds}
+        current={round}
+        path="/admin/matches"
+        query={link({ round: undefined }).split("?")[1] ?? ""}
+      />
 
       {matches.length === 0 ? (
         <Card>

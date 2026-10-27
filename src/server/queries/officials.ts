@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/server/db";
-import { BOOKING_EVENTS } from "@/lib/labels";
+import { CARD_EVENTS } from "@/lib/labels";
 
 /** ผู้ตัดสินทั้งหมด (หลังบ้าน) พร้อมบัญชีที่ผูกและจำนวนนัดที่เป็นผู้ตัดสินที่ 1 */
 export async function listOfficials() {
@@ -36,29 +36,40 @@ export type RefereeStatRow = {
 };
 
 /**
- * สถิติผู้ตัดสินของฤดูกาล — นับจากผู้ตัดสินที่ 1 ของนัดที่อนุมัติแล้ว
- * ตามกติกา ผู้ตัดสินที่ 1 เป็นคนแจกใบทุกใบ จึงไม่ต้องให้กรอกว่าใครแจก
+ * สถิติผู้ตัดสินของฤดูกาล (นัดที่อนุมัติแล้ว)
+ * - นัด = จำนวนนัดที่อยู่ในทีมผู้ตัดสิน (ช่องใดก็ได้)
+ * - ใบ  = นับให้ "ผู้ให้ใบ" ที่บันทึกไว้ ถ้าไม่ได้บันทึก (ข้อมูลเก่า) นับให้ผู้ตัดสินที่ 1 ของนัด
  * ใบเหลืองที่ 2 นับเป็นใบเหลือง (ใบแดงจากใบเหลืองที่ 2 ไม่ถูกนับซ้ำเป็นใบแดง)
  */
 export async function getRefereeStats(seasonId: string): Promise<RefereeStatRow[]> {
+  const person = { select: { id: true, name: true, photoUrl: true } } as const;
   const matches = await db.match.findMany({
-    where: { seasonId, status: "FINISHED", refereeId: { not: null } },
+    where: { seasonId, status: "FINISHED" },
     select: {
-      referee: { select: { id: true, name: true, photoUrl: true } },
-      events: { where: { type: { in: [...BOOKING_EVENTS, "RED"] } }, select: { type: true } },
+      referee: person,
+      assistant1: person,
+      assistant2: person,
+      fourthOfficial: person,
+      events: { where: { type: { in: CARD_EVENTS } }, select: { type: true, issuedBy: person } },
     },
   });
 
   const rows = new Map<string, RefereeStatRow>();
+  const row = (p: { id: string; name: string; photoUrl: string | null }) => {
+    const r = rows.get(p.id) ?? { ...p, matches: 0, yellow: 0, red: 0 };
+    rows.set(p.id, r);
+    return r;
+  };
+
   for (const m of matches) {
-    if (!m.referee) continue;
-    const row = rows.get(m.referee.id) ?? { ...m.referee, matches: 0, yellow: 0, red: 0 };
-    row.matches++;
+    const crew = [m.referee, m.assistant1, m.assistant2, m.fourthOfficial].filter((o) => o !== null);
+    for (const o of new Map(crew.map((c) => [c.id, c])).values()) row(o).matches++;
     for (const e of m.events) {
-      if (e.type === "RED") row.red++;
-      else row.yellow++;
+      const issuer = e.issuedBy ?? m.referee;
+      if (!issuer) continue;
+      if (e.type === "RED") row(issuer).red++;
+      else row(issuer).yellow++;
     }
-    rows.set(m.referee.id, row);
   }
   return [...rows.values()].sort((a, b) => b.matches - a.matches || a.name.localeCompare(b.name, "th"));
 }

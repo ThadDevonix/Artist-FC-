@@ -1,8 +1,9 @@
 /**
  * คำนวณตารางคะแนนจากผลการแข่งขัน
  *
- * นับเฉพาะนัดที่สถานะ FINISHED เท่านั้น (นัดที่กรรมการส่งผลแล้วแต่แอดมินยังไม่อนุมัติ
- * จะยังไม่ถูกนับ) ลำดับการตัดสินเมื่อคะแนนเท่ากันกำหนดได้ต่อฤดูกาล
+ * นับนัดที่อนุมัติแล้ว (FINISHED) และนัดที่กำลังแข่ง (LIVE) ด้วยสกอร์ปัจจุบัน — ตัวเลือกอยู่ที่
+ * src/server/queries/standings.ts · นัดที่กรรมการส่งผลแล้วแต่แอดมินยังไม่อนุมัติ (PENDING) ยังไม่ถูกนับ
+ * ลำดับการตัดสินเมื่อคะแนนเท่ากันกำหนดได้ต่อฤดูกาล
  */
 
 export type Tiebreaker =
@@ -251,4 +252,15 @@ export function parseTiebreakers(raw: string | null | undefined): Tiebreaker[] {
   } catch {
     return DEFAULT_TIEBREAKERS;
   }
+}
+
+/** อันดับที่ขยับในตารางสดเทียบตารางทางการ — teamId → จำนวนอันดับ (บวก = ขึ้น) */
+export function liveMovement(official: StandingRow[], live: StandingRow[]): Record<string, number> {
+  const before = new Map(official.map((r) => [r.team.id, r.position]));
+  const moved: Record<string, number> = {};
+  for (const r of live) {
+    const was = before.get(r.team.id);
+    if (was !== undefined && was !== r.position) moved[r.team.id] = was - r.position;
+  }
+  return moved;
 }

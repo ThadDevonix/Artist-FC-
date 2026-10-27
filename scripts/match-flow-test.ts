@@ -106,7 +106,7 @@ async function main() {
 
     const standingsHtml = await (await fetch(`${BASE}/standings`)).text();
     const matchesCounted = await db.match.count({ where: { seasonId: season.id, status: "FINISHED" } });
-    check("ผลรออนุมัติยังไม่ถูกนับในตารางคะแนน", matchesCounted === 25, `นับอยู่ ${matchesCounted} นัด`);
+    check("ผลรออนุมัติยังไม่ถูกนับในตารางคะแนน", matchesCounted === baselineFinished, `นับอยู่ ${matchesCounted} นัด (เดิม ${baselineFinished})`);
     check("หน้าตารางคะแนนยังโหลดได้", standingsHtml.includes("ตารางคะแนน"));
 
     console.log("\n— กรรมการเพิ่มเหตุการณ์ —");
@@ -114,6 +114,19 @@ async function main() {
     await submitForm(url, refCookie, { teamId: target.homeTeamId, type: "GOAL", playerId: scorer.id, minute: "23" }, 'name="minute"');
     const events = await db.matchEvent.count({ where: { matchId: target.id } });
     check("เหตุการณ์ถูกบันทึก", events === 1, `${events} เหตุการณ์`);
+
+    console.log("\n— ใบเหลือง: ผู้ให้ใบ —");
+    await submitForm(url, refCookie, { teamId: target.homeTeamId, type: "YELLOW", playerId: scorer.id, minute: "30" }, 'name="minute"');
+    const yellow = await db.matchEvent.findFirst({ where: { matchId: target.id, type: "YELLOW" } });
+    check("ไม่เลือกผู้ให้ใบ → นับเป็นผู้ตัดสินที่ 1", yellow?.issuedById === refOfficial.id);
+    const outsider = await db.official.findFirstOrThrow({ where: { id: { not: refOfficial.id } } });
+    const badIssuer = await submitForm(
+      url, refCookie,
+      { teamId: target.homeTeamId, type: "YELLOW", playerId: scorer.id, minute: "31", issuedById: outsider.id },
+      'name="minute"',
+    );
+    const yellows = await db.matchEvent.count({ where: { matchId: target.id, type: "YELLOW" } });
+    check("ผู้ให้ใบที่ไม่ได้อยู่ในทีมผู้ตัดสินถูกปฏิเสธ", yellows === 1 && badIssuer.text.includes("ผู้ให้ใบต้องอยู่ในทีมผู้ตัดสินของนัดนี้"));
 
     console.log("\n— กรรมการห้ามอนุมัติเอง —");
     // หน้าของกรรมการต้องไม่มีปุ่มอนุมัติให้กดด้วยซ้ำ

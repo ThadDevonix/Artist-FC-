@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Card, EditingTitle, PlayerAvatar, POSITION_LABEL, TeamBadge } from "@/components/ui";
+import { BackLink, Card, EditingTitle, PlayerAvatar, POSITION_LABEL, TeamBadge } from "@/components/ui";
 import { SubmitButton } from "@/components/admin/Form";
 import { EditLink } from "@/components/admin/EditLink";
 import { EDIT_FORM_ID, editingCardClass, editingRowClass } from "@/components/admin/editing";
@@ -57,7 +57,7 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/admin/teams" className="text-sm text-muted hover:text-ink">‹ สโมสรทั้งหมด</Link>
+        <BackLink href="/admin/teams">สโมสรทั้งหมด</BackLink>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <TeamBadge name={team.name} code={team.code} logoUrl={team.logoUrl} color={team.color} color2={team.color2} size={48} />
           <div className="min-w-0 flex-1">

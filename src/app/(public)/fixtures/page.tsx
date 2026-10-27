@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { RoundPicker } from "@/components/RoundPicker";
 import { Card } from "@/components/ui";
 import { MatchList } from "@/components/MatchList";
-import { getSeasonBySlug, listMatchesForFixtures, listRounds } from "@/server/queries";
+import { getSeasonBySlug, listMatchesForFixtures, listRoundOptions } from "@/server/queries";
 import type { MatchStatus } from "@/generated/prisma/enums";
 import { thaiDate } from "@/lib/format";
 
@@ -18,8 +19,8 @@ export default async function FixturesPage({ searchParams }: PageProps<"/fixture
     return <p className="py-10 text-center text-muted">ยังไม่มีฤดูกาลในระบบ</p>;
   }
 
-  const rounds = await listRounds(season.id);
-  const round = roundParam && rounds.includes(roundParam) ? roundParam : undefined;
+  const rounds = await listRoundOptions(season.id);
+  const round = roundParam && rounds.some((r) => r.round === roundParam) ? roundParam : undefined;
 
   const matches = await listMatchesForFixtures(season.id, {
     round,
@@ -68,27 +69,12 @@ export default async function FixturesPage({ searchParams }: PageProps<"/fixture
         ))}
       </div>
 
-      <div className="no-scrollbar -mx-3 flex gap-2 overflow-x-auto px-3 sm:mx-0 sm:px-0">
-        <Link
-          href={link({ filter: filter === "all" ? undefined : filter })}
-          className={`shrink-0 rounded-lg border px-3 py-1.5 text-sm transition ${
-            !round ? "border-ink bg-surface font-medium" : "border-line bg-surface text-muted hover:text-ink"
-          }`}
-        >
-          ทุกนัด
-        </Link>
-        {rounds.map((r) => (
-          <Link
-            key={r}
-            href={link({ filter: filter === "all" ? undefined : filter, round: String(r) })}
-            className={`shrink-0 rounded-lg border px-3 py-1.5 text-sm transition ${
-              round === r ? "border-ink bg-surface font-medium" : "border-line bg-surface text-muted hover:text-ink"
-            }`}
-          >
-            นัดที่ {r}
-          </Link>
-        ))}
-      </div>
+      <RoundPicker
+        rounds={rounds}
+        current={round}
+        path="/fixtures"
+        query={link({ filter: filter === "all" ? undefined : filter }).split("?")[1] ?? ""}
+      />
 
       {matches.length === 0 ? (
         <Card>

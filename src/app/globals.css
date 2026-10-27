@@ -80,3 +80,24 @@ body {
 [data-theme="dark"] textarea {
   color-scheme: dark;
 }
+
+/* การ์ดถ่ายทอดสดในหลังบ้าน — ขอบเรืองแสงเป็นจังหวะ ให้คนลงข้อมูลรู้ว่ากำลังไลฟ์อยู่
+   แข่งอยู่ = แดง กะพริบ ~2 วิ · พักครึ่ง = เหลืองอำพันนิ่ง ไม่กะพริบ (เกมหยุดอยู่) */
+@keyframes live-glow {
+  0%, 100% { box-shadow: 0 0 0 1px rgb(220 38 38 / 0.35), 0 0 0 0 rgb(220 38 38 / 0); }
+  50% { box-shadow: 0 0 0 2px rgb(220 38 38 / 0.9), 0 0 22px 2px rgb(220 38 38 / 0.35); }
+}
+.live-glow {
+  border-color: rgb(239 68 68);
+  animation: live-glow 2s ease-in-out infinite;
+}
+.halftime-glow {
+  border-color: rgb(245 158 11);
+  box-shadow: 0 0 0 2px rgb(217 119 6 / 0.5);
+}
+/* คนที่ตั้งเครื่องให้ลดการเคลื่อนไหว — เหลือแค่ขอบสี ไม่กะพริบ */
+@media (prefers-reduced-motion: reduce) {
+  .live-glow {
+    animation: none;
+  }
+}

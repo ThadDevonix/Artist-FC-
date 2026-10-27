@@ -17,7 +17,8 @@
     "test:login": "tsx scripts/login-test.ts",
     "test:flow": "tsx scripts/match-flow-test.ts",
     "test:roster": "tsx scripts/roster-test.ts",
-    "test": "npm run test:logic && npm run test:theme && npm run test:workflow && npm run test:pages && npm run test:responsive && npm run test:login && npm run test:flow && npm run test:roster",
+    "test:live": "tsx scripts/live-test.ts",
+    "test": "npm run test:logic && npm run test:theme && npm run test:workflow && npm run test:pages && npm run test:responsive && npm run test:login && npm run test:flow && npm run test:roster && npm run test:live",
     "postinstall": "prisma generate",
     "test:theme": "tsx scripts/theme-test.ts",
     "test:responsive": "tsx scripts/responsive-test.ts"

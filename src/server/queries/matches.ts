@@ -12,6 +12,9 @@ export const matchListSelect = {
   status: true,
   homeGoals: true,
   awayGoals: true,
+  livePhase: true,
+  phaseStartedAt: true,
+  season: { select: { halfMinutes: true } },
   homeTeam: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true, color2: true } },
   awayTeam: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true, color2: true } },
 } as const;
@@ -42,14 +45,15 @@ export async function getRecentAndUpcoming(seasonId: string, take = 5) {
   return { recent, upcoming };
 }
 
-export async function listRounds(seasonId: string) {
+/** นัดที่ทั้งหมดของฤดูกาล — ตัวเลือกใน RoundPicker (ไม่ใส่วันที่ เพราะแต่ละคู่ในนัดเดียวกันแข่งคนละวันได้) */
+export async function listRoundOptions(seasonId: string) {
   const rows = await db.match.findMany({
     where: { seasonId },
     select: { round: true },
     distinct: ["round"],
     orderBy: { round: "asc" },
   });
-  return rows.map((r) => r.round);
+  return rows.map((r) => ({ round: r.round, label: `นัดที่ ${r.round}` }));
 }
 
 export async function getTeamMatches(seasonId: string, teamId: string) {
@@ -82,7 +86,7 @@ export async function getMatchDetail(id: string) {
     include: {
       homeTeam: true,
       awayTeam: true,
-      season: { select: { name: true } },
+      season: { select: { name: true, halfMinutes: true } },
       referee: officialName,
       assistant1: officialName,
       assistant2: officialName,
@@ -92,6 +96,7 @@ export async function getMatchDetail(id: string) {
         include: {
           player: { select: { name: true, slug: true } },
           assistPlayer: { select: { name: true, slug: true } },
+          issuedBy: { select: { name: true } },
         },
       },
     },
@@ -105,6 +110,7 @@ export async function getMatchForAdmin(id: string) {
     include: {
       homeTeam: true,
       awayTeam: true,
+      season: { select: { halfMinutes: true } },
       // userId ใช้ตัดสินสิทธิ์ (matchPermission) ว่าบัญชีที่ล็อกอินอยู่ในทีมผู้ตัดสินไหม
       referee: officialWithUser,
       assistant1: officialWithUser,
@@ -118,6 +124,7 @@ export async function getMatchForAdmin(id: string) {
           player: { select: { name: true } },
           assistPlayer: { select: { name: true } },
           team: { select: { shortName: true } },
+          issuedBy: { select: { name: true } },
         },
       },
     },
@@ -207,4 +214,32 @@ export async function getSeasonMatchCounts(seasonId: string) {
     db.match.count({ where: { seasonId, status: { in: LOCKED_STATUSES } } }),
   ]);
   return { total, finished, pending, locked };
+}
+
+/**
+ * สถานะถ่ายทอดสดของฤดูกาล — ใช้ตัดสินว่าหน้าเว็บควรดึงข้อมูลใหม่บ่อยแค่ไหน
+ * live = มีนัดกำลังแข่ง · soon = มีนัดใกล้เตะ (อีกไม่เกิน 2 ชม.) หรือเลยเวลาเตะแล้วแต่ยังไม่เริ่มถ่ายทอด
+ */
+export async function getLiveState(seasonId: string) {
+  const now = Date.now();
+  const [live, soon] = await Promise.all([
+    db.match.count({ where: { seasonId, status: "LIVE" } }),
+    db.match.count({
+      where: {
+        seasonId,
+        status: "SCHEDULED",
+        kickoffAt: { gte: new Date(now - 3 * 60 * 60 * 1000), lte: new Date(now + 2 * 60 * 60 * 1000) },
+      },
+    }),
+  ]);
+  return { live: live > 0, soon: soon > 0 };
+}
+
+/** นัดที่กำลังแข่งอยู่ตอนนี้ — การ์ด "กำลังแข่ง" บนหน้าแรก */
+export async function listLiveMatches(seasonId: string) {
+  return db.match.findMany({
+    where: { seasonId, status: "LIVE" },
+    select: matchListSelect,
+    orderBy: { kickoffAt: "asc" },
+  });
 }

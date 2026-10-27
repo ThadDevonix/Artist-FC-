@@ -110,6 +110,10 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
               </Field>
             </div>
 
+            <Field label="ความยาวครึ่ง (นาที)" hint="ใช้กับนาฬิกาถ่ายทอดสด เช่น 45 = 45+45 นาที, 30 = 30+30 นาที">
+              <input type="number" name="halfMinutes" min={10} max={60} defaultValue={season.halfMinutes} className={inputClass} />
+            </Field>
+
             <fieldset>
               <legend className="mb-1 text-sm font-medium">ลำดับการตัดสินเมื่อคะแนนเท่ากัน</legend>
               <p className="mb-2 text-xs text-muted">

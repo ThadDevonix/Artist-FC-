@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/server/db";
+import type { LivePhase } from "@/generated/prisma/enums";
 import { computeStandings, parseTiebreakers, type StandingRow } from "@/lib/standings";
 
 export type StandingZone = { label: string; color: string; fromPos: number; toPos: number };
@@ -10,9 +11,28 @@ export type StandingZone = { label: string; color: string; fromPos: number; toPo
  * ตัวคำนวณจริงอยู่ที่ src/lib/standings.ts ซึ่งไม่รู้จักฐานข้อมูลเลย
  * ที่นี่ทำหน้าที่แค่ดึงข้อมูลแล้วส่งต่อ — แยกแบบนี้ทำให้เทสต์กฎคะแนนได้โดยไม่ต้องมี DB
  */
-export async function getStandings(seasonId: string): Promise<{
+/** ทีมที่กำลังแข่งอยู่ — สกอร์จากมุมของทีมนั้น ใช้แสดงในตารางคะแนนสด */
+export type LiveTeamScore = {
+  goalsFor: number;
+  goalsAgainst: number;
+  /** นาฬิกาของนัดนั้น — ใช้แสดงนาทีหลังสกอร์ในตาราง */
+  livePhase: LivePhase | null;
+  phaseStartedAt: Date | null;
+  halfMinutes: number;
+};
+
+/**
+ * ตารางคะแนนนับนัดที่กำลังแข่งด้วยสกอร์ปัจจุบันเสมอ — ยิงประตูแล้วอันดับขยับทันที
+ * พอจบเกมก็กลายเป็นผลจริงไปเอง ไม่ต้องมีตาราง "สด" กับ "ทางการ" แยกกัน
+ * includeLive = false ใช้หาอันดับก่อนเกม เพื่อแสดงลูกศร ▲▼ ว่าอันดับขยับจากนัดที่กำลังแข่ง
+ */
+export async function getStandings(
+  seasonId: string,
+  { includeLive = true }: { includeLive?: boolean } = {},
+): Promise<{
   rows: StandingRow[];
   zones: StandingZone[];
+  live: Record<string, LiveTeamScore>;
 }> {
   const [season, seasonTeams, matches, zones] = await Promise.all([
     db.season.findUnique({ where: { id: seasonId } }),
@@ -25,9 +45,9 @@ export async function getStandings(seasonId: string): Promise<{
       },
     }),
     db.match.findMany({
-      where: { seasonId, status: "FINISHED" },
+      where: { seasonId, status: { in: includeLive ? ["FINISHED", "LIVE"] : ["FINISHED"] } },
       select: {
-        id: true, round: true, kickoffAt: true,
+        id: true, round: true, kickoffAt: true, status: true, livePhase: true, phaseStartedAt: true,
         homeTeamId: true, awayTeamId: true, homeGoals: true, awayGoals: true,
       },
       orderBy: { kickoffAt: "asc" },
@@ -35,7 +55,15 @@ export async function getStandings(seasonId: string): Promise<{
     db.zone.findMany({ where: { seasonId }, orderBy: { fromPos: "asc" } }),
   ]);
 
-  if (!season) return { rows: [], zones: [] };
+  if (!season) return { rows: [], zones: [], live: {} };
+
+  const live: Record<string, LiveTeamScore> = {};
+  for (const m of matches) {
+    if (m.status !== "LIVE" || m.homeGoals === null || m.awayGoals === null) continue;
+    const clock = { livePhase: m.livePhase, phaseStartedAt: m.phaseStartedAt, halfMinutes: season.halfMinutes };
+    live[m.homeTeamId] = { goalsFor: m.homeGoals, goalsAgainst: m.awayGoals, ...clock };
+    live[m.awayTeamId] = { goalsFor: m.awayGoals, goalsAgainst: m.homeGoals, ...clock };
+  }
 
   const rows = computeStandings(
     seasonTeams.map((st) => st.team),
@@ -59,5 +87,6 @@ export async function getStandings(seasonId: string): Promise<{
   return {
     rows,
     zones: zones.map((z) => ({ label: z.label, color: z.color, fromPos: z.fromPos, toPos: z.toPos })),
+    live,
   };
 }

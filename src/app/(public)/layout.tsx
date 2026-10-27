@@ -3,16 +3,20 @@ import { Logo } from "@/components/Logo";
 import { SiteTabs } from "@/components/SiteTabs";
 import { ThemeController } from "@/components/ThemeController";
 import { getActiveSeason } from "@/server/queries";
-import { getSeasonProgress } from "@/server/queries";
+import { getLiveState, getSeasonProgress } from "@/server/queries";
+import { LiveRefresh } from "@/components/LiveRefresh";
 import { getSession } from "@/server/auth";
 
 export default async function PublicLayout({ children }: LayoutProps<"/">) {
   const season = await getActiveSeason();
   const progress = season ? await getSeasonProgress(season.id) : null;
+  const liveState = season ? await getLiveState(season.id) : null;
   const session = await getSession();
 
   return (
     <div className="flex min-h-full flex-col">
+      {/* มีนัดกำลังแข่ง → ดึงข้อมูลใหม่ทุก 20 วิ · ใกล้เวลาเตะ → ทุก 60 วิ (จะได้เห็นตอนเริ่มถ่ายทอด) · นอกนั้นไม่ดึง */}
+      <LiveRefresh intervalMs={liveState?.live ? 20_000 : liveState?.soon ? 60_000 : null} />
       <header className="border-b border-line bg-surface">
         <div className="mx-auto w-full max-w-6xl px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">

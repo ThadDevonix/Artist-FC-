@@ -2,6 +2,9 @@ import Link from "next/link";
 import { FormDots, TeamBadge } from "@/components/ui";
 import { signed } from "@/lib/format";
 import type { StandingRow } from "@/lib/standings";
+import { liveClockProps } from "@/lib/live-clock";
+import { LiveClock } from "@/components/LiveClock";
+import type { LiveTeamScore } from "@/server/queries";
 
 type Zone = { label: string; color: string; fromPos: number; toPos: number };
 
@@ -11,15 +14,22 @@ type Zone = { label: string; color: string; fromPos: number; toPos: number };
  *   sm (≥640)       + ชนะ เสมอ แพ้
  *   md (≥768)       + ได้ เสีย
  *   lg (≥1024)      + ฟอร์ม 5 นัดล่าสุด
+ *
+ * ตารางสด: ส่ง live (สกอร์ปัจจุบันของทีมที่กำลังแข่ง) และ movement (อันดับที่ขยับเทียบตารางทางการ)
  */
 export function StandingsTable({
   rows,
   zones = [],
   compact = false,
+  live,
+  movement,
 }: {
   rows: StandingRow[];
   zones?: Zone[];
   compact?: boolean;
+  live?: Record<string, LiveTeamScore>;
+  /** teamId → จำนวนอันดับที่ขยับ (บวก = ขึ้น) */
+  movement?: Record<string, number>;
 }) {
   const zoneFor = (pos: number) => zones.find((z) => pos >= z.fromPos && pos <= z.toPos);
 
@@ -56,10 +66,12 @@ export function StandingsTable({
         <tbody>
           {rows.map((row) => {
             const zone = zoneFor(row.position);
+            const playing = live?.[row.team.id];
+            const moved = movement?.[row.team.id] ?? 0;
             return (
               <tr
                 key={row.team.id}
-                className="border-b border-line last:border-0 hover:bg-canvas"
+                className={`border-b border-line last:border-0 ${playing ? "bg-red-50/60 dark:bg-red-950/30" : "hover:bg-canvas"}`}
               >
                 <td className="relative py-2.5 pl-3 tnum text-muted sm:pl-4">
                   {zone && (
@@ -70,7 +82,17 @@ export function StandingsTable({
                       title={zone.label}
                     />
                   )}
-                  {row.position}
+                  <span className="inline-flex items-center gap-0.5">
+                    {row.position}
+                    {moved !== 0 && (
+                      <span
+                        className={`text-[10px] font-bold ${moved > 0 ? "text-win" : "text-loss"}`}
+                        title={moved > 0 ? `ขึ้น ${moved} อันดับ` : `ลง ${-moved} อันดับ`}
+                      >
+                        {moved > 0 ? "▲" : "▼"}
+                      </span>
+                    )}
+                  </span>
                 </td>
                 <td className="min-w-0 py-2.5 pr-2">
                   <Link
@@ -84,6 +106,24 @@ export function StandingsTable({
                       size={22}
                     />
                     <span className="truncate">{row.team.shortName}</span>
+                    {playing && (
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <span
+                          className="rounded bg-red-600 px-1.5 py-px text-[11px] font-bold text-white tnum"
+                          title="สกอร์ปัจจุบัน (กำลังแข่ง)"
+                        >
+                          {playing.goalsFor}–{playing.goalsAgainst}
+                        </span>
+                        <LiveClock
+                          {...liveClockProps({
+                            livePhase: playing.livePhase,
+                            phaseStartedAt: playing.phaseStartedAt,
+                            season: { halfMinutes: playing.halfMinutes },
+                          })}
+                          className="text-[11px]"
+                        />
+                      </span>
+                    )}
                   </Link>
                 </td>
                 <td className="py-2.5 text-center tnum">{row.played}</td>

@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Card, TeamBadge } from "@/components/ui";
+import { Card, LiveBadge, TeamBadge } from "@/components/ui";
 import { MatchList } from "@/components/MatchList";
 import { StandingsTable } from "@/components/StandingsTable";
+import { liveMovement } from "@/lib/standings";
 import { StatLeadersPanel } from "@/components/StatLeaders";
-import { getActiveSeason, getRecentAndUpcoming, getStandings, listSeasonTeams } from "@/server/queries";
+import { getActiveSeason, getRecentAndUpcoming, getStandings, listSeasonTeams, listLiveMatches } from "@/server/queries";
 import { getSeasonProgress } from "@/server/queries";
 
 export default async function OverviewPage() {
@@ -23,12 +24,17 @@ export default async function OverviewPage() {
     );
   }
 
-  const [{ rows, zones }, { recent, upcoming }, progress, teams] = await Promise.all([
+  const [{ rows, zones, live }, { recent, upcoming }, progress, teams, liveMatches] = await Promise.all([
     getStandings(season.id),
     getRecentAndUpcoming(season.id, 5),
     getSeasonProgress(season.id),
     listSeasonTeams(season.id),
+    listLiveMatches(season.id),
   ]);
+  // มีนัดกำลังแข่ง → เทียบอันดับก่อนเกม เพื่อโชว์ ▲▼ ในตารางคะแนน
+  const movement = liveMatches.length > 0
+    ? liveMovement((await getStandings(season.id, { includeLive: false })).rows, rows)
+    : undefined;
 
   const goals = rows.reduce((s, r) => s + r.goalsFor, 0);
 
@@ -45,6 +51,19 @@ export default async function OverviewPage() {
           />
         </section>
 
+        {liveMatches.length > 0 && (
+          <Card
+            title={
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <LiveBadge /> กำลังแข่ง
+              </h2>
+            }
+            className="border-red-300 dark:border-red-900"
+          >
+            <MatchList matches={liveMatches} showRound />
+          </Card>
+        )}
+
         <Card
           title="ตารางคะแนน"
           action={
@@ -54,7 +73,7 @@ export default async function OverviewPage() {
           }
           bodyClassName="pb-2"
         >
-          <StandingsTable rows={rows.slice(0, 6)} zones={zones} compact />
+          <StandingsTable rows={rows.slice(0, 6)} zones={zones} compact live={live} movement={movement} />
         </Card>
 
         <div className="grid gap-6 md:grid-cols-2">

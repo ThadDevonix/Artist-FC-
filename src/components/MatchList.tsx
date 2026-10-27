@@ -1,6 +1,9 @@
 import Link from "next/link";
-import { StatusPill, TeamBadge } from "@/components/ui";
+import { LiveBadge, StatusPill, TeamBadge } from "@/components/ui";
 import { thaiDayMonth, thaiTime } from "@/lib/format";
+import { liveClockProps } from "@/lib/live-clock";
+import { LiveClock } from "@/components/LiveClock";
+import type { LivePhase } from "@/generated/prisma/enums";
 
 export type MatchListItem = {
   id: string;
@@ -12,10 +15,15 @@ export type MatchListItem = {
   awayGoals: number | null;
   homeTeam: { id: string; name: string; shortName: string; slug: string; logoUrl: string | null; color: string; color2: string | null };
   awayTeam: { id: string; name: string; shortName: string; slug: string; logoUrl: string | null; color: string; color2: string | null };
+  /** นาฬิกาถ่ายทอดสด (มีเมื่อดึงด้วย matchListSelect) */
+  livePhase?: LivePhase | null;
+  phaseStartedAt?: Date | null;
+  season?: { halfMinutes: number };
 };
 
 export function MatchRow({ match, showRound = false }: { match: MatchListItem; showRound?: boolean }) {
   const played = match.homeGoals !== null && match.awayGoals !== null;
+  const live = match.status === "LIVE";
   const homeWin = played && match.homeGoals! > match.awayGoals!;
   const awayWin = played && match.awayGoals! > match.homeGoals!;
 
@@ -26,7 +34,11 @@ export function MatchRow({ match, showRound = false }: { match: MatchListItem; s
     >
       <div className="w-12 shrink-0 text-[11px] leading-tight text-muted sm:w-16 sm:text-xs">
         <div>{thaiDayMonth(match.kickoffAt)}</div>
-        <div className="tnum">{thaiTime(match.kickoffAt)}</div>
+        {live && match.season ? (
+          <LiveClock {...liveClockProps({ livePhase: match.livePhase ?? null, phaseStartedAt: match.phaseStartedAt ?? null, season: match.season })} />
+        ) : (
+          <div className="tnum">{thaiTime(match.kickoffAt)}</div>
+        )}
       </div>
 
       <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
@@ -37,7 +49,7 @@ export function MatchRow({ match, showRound = false }: { match: MatchListItem; s
 
         <span className="w-12 shrink-0 text-center tnum sm:w-16">
           {played ? (
-            <span className="rounded-md bg-canvas px-1.5 py-1 text-sm font-bold sm:px-2">
+            <span className={`rounded-md px-1.5 py-1 text-sm font-bold sm:px-2 ${live ? "bg-red-600 text-white" : "bg-canvas"}`}>
               {match.homeGoals}–{match.awayGoals}
             </span>
           ) : (
@@ -51,6 +63,8 @@ export function MatchRow({ match, showRound = false }: { match: MatchListItem; s
         </span>
       </div>
 
+      {/* จอเล็กไม่มีคอลัมน์สถานะ แต่ LIVE ต้องเห็นเสมอ */}
+      {live && <LiveBadge className="md:hidden" />}
       <div className="hidden w-28 shrink-0 items-center justify-end gap-2 md:flex">
         {showRound && <span className="text-xs text-muted">นัดที่ {match.round}</span>}
         {match.status !== "FINISHED" && <StatusPill status={match.status} />}

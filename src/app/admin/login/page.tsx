@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { BackLink } from "@/components/ui";
 import { redirect } from "next/navigation";
 import { ActionForm, Field, SubmitButton, inputClass } from "@/components/admin/Form";
 import { loginAction } from "@/server/actions";
@@ -44,9 +44,9 @@ export default async function LoginPage() {
           </ActionForm>
         </div>
 
-        <p className="mt-6 text-center text-sm text-muted">
-          <Link href="/" className="hover:text-brand">← กลับหน้าเว็บ</Link>
-        </p>
+        <div className="mt-6 text-center">
+          <BackLink href="/">กลับหน้าเว็บ</BackLink>
+        </div>
       </div>
     </div>
   );

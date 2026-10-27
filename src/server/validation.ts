@@ -173,6 +173,11 @@ export const officialSchema = z.object({
   active: checkbox,
 });
 
+export const livePhaseSchema = z.object({
+  matchId: required("ไม่พบนัดนี้"),
+  phase: z.enum(["HALF_TIME", "SECOND_HALF"]),
+});
+
 export const matchIdSchema = z.object({
   matchId: required("ไม่พบนัดนี้"),
   reason: optionalText.optional(),
@@ -187,6 +192,7 @@ export const eventSchema = z
     type: eventTypeEnum,
     minute: requiredInt(1, 130, "นาทีต้องอยู่ระหว่าง 1–130"),
     extraMinute: optionalInt,
+    issuedById: optionalText,
   })
   .refine((v) => v.assistPlayerId !== v.playerId, {
     message: "ผู้จ่ายบอลกับผู้ทำประตูต้องไม่ใช่คนเดียวกัน",
@@ -255,6 +261,7 @@ export const seasonSchema = z.object({
   pointsWin: optionalInt,
   pointsDraw: optionalInt,
   pointsLoss: optionalInt,
+  halfMinutes: optionalInt.refine((v) => v === null || (v >= 10 && v <= 60), "ความยาวครึ่งต้องอยู่ระหว่าง 10–60 นาที"),
   startDate: optionalDate,
   endDate: optionalDate,
 });

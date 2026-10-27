@@ -103,14 +103,14 @@ export default async function StatsPage({ searchParams }: PageProps<"/stats">) {
                     </span>
                   </td>
                   <td className="py-2 pr-3 text-center font-semibold tnum sm:pr-4">
-                    {((r.yellow + r.red) / r.matches).toFixed(1)}
+                    {r.matches ? ((r.yellow + r.red) / r.matches).toFixed(1) : "—"}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p className="border-t border-line px-4 py-2 text-xs text-muted sm:px-5">
-            นับจากผู้ตัดสินที่ 1 ของนัดที่อนุมัติแล้ว (ผู้ตัดสินที่ 1 เป็นผู้แจกใบทุกใบตามกติกา)
+            นัด = นัดที่อยู่ในทีมผู้ตัดสิน · ใบนับตามผู้ให้ใบที่บันทึกไว้ (ถ้าไม่ได้ระบุ นับให้ผู้ตัดสินที่ 1)
           </p>
         </Card>
       )}

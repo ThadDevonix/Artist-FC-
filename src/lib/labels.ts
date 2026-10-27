@@ -96,6 +96,8 @@ export const EVENT_TYPES: EventType[] = [
 /** ประตูที่นับเป็นผลงานของผู้ยิง (ไม่รวมการทำเข้าประตูตัวเอง) */
 export const SCORING_EVENTS: EventType[] = ["GOAL", "PENALTY_GOAL"];
 export const BOOKING_EVENTS: EventType[] = ["YELLOW", "SECOND_YELLOW"];
+/** ใบทุกชนิด — เหตุการณ์ที่ต้องมีผู้ตัดสินเป็นผู้ให้ */
+export const CARD_EVENTS: EventType[] = [...BOOKING_EVENTS, "RED"];
 
 // ───────────────────────────── สิทธิ์ผู้ใช้ ─────────────────────────────
 
@@ -112,6 +114,8 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   MATCH_APPROVE: "อนุมัติผล",
   MATCH_REJECT: "ตีกลับผล",
   MATCH_UPDATE: "แก้ไขรายละเอียดนัด",
+  MATCH_LIVE_START: "เริ่มถ่ายทอดสด",
+  MATCH_LIVE_PHASE: "เปลี่ยนช่วงเวลาถ่ายทอดสด",
   EVENT_ADD: "เพิ่มเหตุการณ์",
   EVENT_DELETE: "ลบเหตุการณ์",
   TEAM_CREATE: "เพิ่มสโมสร",

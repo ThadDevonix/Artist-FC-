@@ -11,8 +11,10 @@ export function SubmitButton({
   variant = "primary",
   className = "",
   confirm,
+  disabled = false,
 }: {
   children: React.ReactNode;
+  disabled?: boolean;
   variant?: "primary" | "ghost" | "danger";
   className?: string;
   confirm?: string;
@@ -27,7 +29,7 @@ export function SubmitButton({
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       onClick={confirm ? (e) => { if (!window.confirm(confirm)) e.preventDefault(); } : undefined}
       className={`rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${styles} ${className}`}
     >

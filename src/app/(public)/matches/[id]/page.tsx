@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { LiveClock } from "@/components/LiveClock";
+import { liveClockProps } from "@/lib/live-clock";
 import { notFound } from "next/navigation";
 import { Card, StatusPill, TeamBadge } from "@/components/ui";
 import { EventIcon, eventLabel } from "@/components/events";
@@ -41,8 +43,9 @@ export default async function MatchPage({ params }: PageProps<"/matches/[id]">) 
               ) : (
                 <div className="text-2xl font-semibold text-muted">พบ</div>
               )}
-              <div className="mt-2 flex justify-center">
+              <div className="mt-2 flex items-center justify-center gap-2">
                 <StatusPill status={match.status} />
+                {match.status === "LIVE" && <LiveClock {...liveClockProps(match)} className="text-sm" />}
               </div>
             </div>
 
@@ -151,6 +154,7 @@ function EventDetail({
     type: string;
     player: { name: string; slug: string } | null;
     assistPlayer: { name: string; slug: string } | null;
+    issuedBy: { name: string } | null;
   };
 }) {
   return (
@@ -167,6 +171,7 @@ function EventDetail({
         <span className="block text-xs text-muted">
           {eventLabel(event.type)}
           {event.assistPlayer ? ` · จ่ายโดย ${event.assistPlayer.name}` : ""}
+          {event.issuedBy ? ` · ให้โดย ${event.issuedBy.name}` : ""}
         </span>
       </span>
     </div>

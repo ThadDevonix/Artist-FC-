@@ -1,10 +1,12 @@
 "use server";
 
 import { db } from "@/server/db";
-import { audit, requireRole, requireSession } from "@/server/auth";
+import { audit, requireRole, requireSession, type Session } from "@/server/auth";
 import { loadEditableMatch } from "@/server/guards";
+import { scoreFromEvents, syncLiveScore } from "@/server/live";
 import {
   matchDetailSchema,
+  livePhaseSchema,
   matchIdSchema,
   matchResultSchema,
   parseForm,
@@ -31,6 +33,17 @@ export async function saveMatchResultAction(
   const access = await loadEditableMatch(session, matchId);
   if (!access.ok) return { error: access.error };
 
+  return recordResult(session, matchId, homeGoals, awayGoals, notes);
+}
+
+/** บันทึกผลจริง — ใช้ทั้งฟอร์มกรอกสกอร์และปุ่ม "จบเกม" ของโหมดถ่ายทอดสด */
+async function recordResult(
+  session: Session,
+  matchId: string,
+  homeGoals: number,
+  awayGoals: number,
+  notes?: string | null,
+): Promise<ActionState> {
   const isAdmin = session.role === "ADMIN";
   const now = new Date();
 
@@ -39,8 +52,10 @@ export async function saveMatchResultAction(
     data: {
       homeGoals,
       awayGoals,
-      notes,
+      ...(notes !== undefined ? { notes } : {}),
       status: isAdmin ? "FINISHED" : "PENDING",
+      livePhase: null,
+      phaseStartedAt: null,
       submittedById: session.userId,
       submittedAt: now,
       ...(isAdmin
@@ -59,6 +74,64 @@ export async function saveMatchResultAction(
 
   refreshAll();
   return { ok: isAdmin ? "บันทึกและอนุมัติผลแล้ว" : "ส่งผลให้ผู้ดูแลอนุมัติแล้ว" };
+}
+
+/** เริ่มถ่ายทอดสด — สถานะ "กำลังแข่ง" สกอร์เริ่ม 0–0 แล้วนับจากเหตุการณ์ประตูเอง */
+export async function startLiveAction(formData: FormData) {
+  const session = await requireSession();
+  const parsed = parseForm(matchIdSchema, formData);
+  if (!parsed.ok) return;
+
+  const access = await loadEditableMatch(session, parsed.data.matchId);
+  if (!access.ok || !["SCHEDULED", "POSTPONED"].includes(access.match.status)) return;
+
+  // เวลาเตะในโปรแกรมเปลี่ยนเป็นเวลาที่กดจริง (นัดเลท/เตะก่อน) — เวลาเดิมที่แจ้งไว้เก็บในประวัติการแก้ไข
+  const now = new Date();
+  await db.match.update({
+    where: { id: access.match.id },
+    data: { status: "LIVE", livePhase: "FIRST_HALF", phaseStartedAt: now, kickoffAt: now },
+  });
+  await syncLiveScore(access.match.id);
+  await audit(session.userId, "MATCH_LIVE_START", "Match", access.match.id, {
+    scheduledKickoff: access.match.kickoffAt.toISOString(),
+    actualKickoff: now.toISOString(),
+  });
+  refreshAll();
+}
+
+/** พักครึ่ง / เริ่มครึ่งหลัง — นาฬิกานับใหม่จากเวลาที่กด */
+export async function setLivePhaseAction(formData: FormData) {
+  const session = await requireSession();
+  const parsed = parseForm(livePhaseSchema, formData);
+  if (!parsed.ok) return;
+
+  const access = await loadEditableMatch(session, parsed.data.matchId);
+  if (!access.ok || access.match.status !== "LIVE") return;
+
+  await db.match.update({
+    where: { id: access.match.id },
+    data: { livePhase: parsed.data.phase, phaseStartedAt: new Date() },
+  });
+  await audit(session.userId, "MATCH_LIVE_PHASE", "Match", access.match.id, { phase: parsed.data.phase });
+  refreshAll();
+}
+
+/**
+ * จบเกม — ใช้สกอร์ที่นับจากเหตุการณ์เป็นผลการแข่งขัน ไม่ต้องกรอกซ้ำ
+ * แอดมินกด = อนุมัติทันที (เข้าตารางคะแนน) · กรรมการกด = ส่งให้แอดมินอนุมัติ
+ */
+export async function finishLiveAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireSession();
+  const parsed = parseForm(matchIdSchema, formData);
+  if (!parsed.ok) return { error: parsed.error };
+
+  const access = await loadEditableMatch(session, parsed.data.matchId);
+  if (!access.ok) return { error: access.error };
+  if (access.match.status !== "LIVE") return { error: "นัดนี้ไม่ได้อยู่ระหว่างถ่ายทอดสด" };
+
+  const score = await scoreFromEvents(access.match.id);
+  if (!score) return { error: "ไม่พบนัดนี้" };
+  return recordResult(session, access.match.id, score.homeGoals, score.awayGoals);
 }
 
 export async function approveMatchAction(formData: FormData) {
@@ -108,6 +181,10 @@ export async function updateMatchAction(_prev: ActionState, formData: FormData):
   if (!parsed.ok) return { error: parsed.error };
   const { matchId, kickoffAt, venue, refereeId, assistant1Id, assistant2Id, fourthOfficialId, status } = parsed.data;
 
+  const before = await db.match.findUnique({ where: { id: matchId }, select: { status: true } });
+  // เลิกถ่ายทอด (กลับไปยังไม่แข่ง/เลื่อน/ยกเลิก) ต้องล้างสกอร์สด ไม่งั้นหน้าเว็บจะโชว์สกอร์ของเกมที่ยังไม่ได้แข่ง
+  const leftLive = before?.status === "LIVE" && status && ["SCHEDULED", "POSTPONED", "CANCELLED"].includes(status);
+
   await db.match.update({
     where: { id: matchId },
     data: {
@@ -118,8 +195,12 @@ export async function updateMatchAction(_prev: ActionState, formData: FormData):
       assistant2Id,
       fourthOfficialId,
       ...(status ? { status } : {}),
+      ...(leftLive ? { homeGoals: null, awayGoals: null, livePhase: null, phaseStartedAt: null } : {}),
+      // ตั้งเป็น "กำลังแข่ง" จากฟอร์มนี้โดยตรง (ไม่ผ่านปุ่มเริ่มถ่ายทอด) → เริ่มนาฬิกาครึ่งแรกให้
+      ...(status === "LIVE" && before?.status !== "LIVE" ? { livePhase: "FIRST_HALF" as const, phaseStartedAt: new Date() } : {}),
     },
   });
+  await syncLiveScore(matchId);
   await audit(session.userId, "MATCH_UPDATE", "Match", matchId);
   refreshAll();
   return { ok: "บันทึกรายละเอียดนัดแล้ว" };

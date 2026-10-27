@@ -109,6 +109,21 @@ export function PlayerAvatar({
   );
 }
 
+/** ปุ่มย้อนกลับ — ทรงเม็ดยา มีลูกศร ใช้แบบเดียวกันทุกหน้า */
+export function BackLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface py-1.5 pl-2.5 pr-4 text-sm font-medium text-muted shadow-sm transition hover:border-ink hover:text-ink"
+    >
+      <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+        <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      {children}
+    </Link>
+  );
+}
+
 /** หัวการ์ดตอนกำลังแก้ไข — บอกชัดว่ากำลังแก้ใครอยู่ */
 export function EditingTitle({ label, name }: { label: string; name: string }) {
   return (
@@ -197,7 +212,21 @@ export function EmptyState({ children }: { children: ReactNode }) {
   );
 }
 
+/** ป้าย LIVE จุดแดงกะพริบ — ใช้ทุกที่ที่มีนัดกำลังแข่ง */
+export function LiveBadge({ className = "" }: { className?: string }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-bold tracking-wide text-white ${className}`}>
+      <span aria-hidden className="relative flex size-1.5">
+        <span className="absolute inline-flex size-full animate-ping rounded-full bg-white opacity-75" />
+        <span className="relative inline-flex size-1.5 rounded-full bg-white" />
+      </span>
+      LIVE
+    </span>
+  );
+}
+
 export function StatusPill({ status }: { status: string }) {
+  if (status === "LIVE") return <LiveBadge />;
   const key = status as MatchStatus;
   const label = MATCH_STATUS_LABEL[key] ?? status;
   const cls = MATCH_STATUS_STYLE[key] ?? "bg-canvas text-muted";

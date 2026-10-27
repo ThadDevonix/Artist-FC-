@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const ALL = [
   { href: "/admin", label: "ภาพรวม", adminOnly: false },
-  { href: "/admin/matches", label: "บันทึกผล", adminOnly: false },
+  { href: "/admin/matches", label: "บันทึกผลการแข่งขัน", adminOnly: false },
   { href: "/admin/seasons", label: "ฤดูกาล", adminOnly: true },
   { href: "/admin/teams", label: "สโมสร/นักเตะ", adminOnly: true },
   { href: "/admin/officials", label: "ผู้ตัดสิน", adminOnly: true },

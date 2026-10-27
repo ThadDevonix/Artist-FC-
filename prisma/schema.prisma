@@ -53,6 +53,7 @@ model Official {
   assistant1Matches   Match[] @relation("MatchAssistant1")
   assistant2Matches   Match[] @relation("MatchAssistant2")
   fourthOfficialMatch Match[] @relation("MatchFourthOfficial")
+  issuedCards         MatchEvent[] @relation("EventIssuer")
 }
 
 // ───────────────────────────── ลีก / ฤดูกาล ─────────────────────────────
@@ -66,6 +67,7 @@ model Season {
   pointsWin Int      @default(3)
   pointsDraw Int     @default(1)
   pointsLoss Int     @default(0)
+  halfMinutes Int    @default(45) // ความยาวครึ่งละกี่นาที — ใช้กับนาฬิกาถ่ายทอดสด
   // ลำดับการตัดสินเมื่อคะแนนเท่ากัน เก็บเป็น JSON array เช่น ["GOAL_DIFF","GOALS_FOR","HEAD_TO_HEAD","WINS","NAME"]
   tiebreakers String  @default("[\"GOAL_DIFF\",\"GOALS_FOR\",\"HEAD_TO_HEAD\",\"WINS\",\"NAME\"]")
   startDate DateTime?
@@ -212,6 +214,10 @@ model Match {
   awayGoals  Int?
   notes      String?
 
+  // นาฬิกาถ่ายทอดสด — ช่วงเวลาปัจจุบันและเวลาที่ช่วงนั้นเริ่ม (เวลาเดินคำนวณจากตรงนี้ ไม่ต้องบันทึกทุกวินาที)
+  livePhase      LivePhase?
+  phaseStartedAt DateTime?
+
   // ทีมผู้ตัดสิน — ผู้ตัดสินที่ 1 คือคนแจกใบเหลือง/แดงทุกใบตามกติกา สถิติผู้ตัดสินนับจากช่องนี้
   refereeId        String?
   assistant1Id     String?
@@ -241,6 +247,12 @@ model Match {
   @@index([status])
 }
 
+enum LivePhase {
+  FIRST_HALF
+  HALF_TIME
+  SECOND_HALF
+}
+
 enum EventType {
   GOAL
   OWN_GOAL
@@ -260,6 +272,7 @@ model MatchEvent {
   type           EventType
   minute         Int
   extraMinute    Int? // เวลาทดเจ็บ เช่น 90+3
+  issuedById     String? // ผู้ตัดสินที่ให้ใบ (เฉพาะใบเหลือง/แดง) — ว่าง = ผู้ตัดสินที่ 1 ของนัด
   note           String?
   createdAt      DateTime  @default(now())
 
@@ -267,6 +280,7 @@ model MatchEvent {
   team         Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
   player       Player? @relation("EventPlayer", fields: [playerId], references: [id], onDelete: SetNull)
   assistPlayer Player? @relation("EventAssist", fields: [assistPlayerId], references: [id], onDelete: SetNull)
+  issuedBy     Official? @relation("EventIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
 
   @@index([matchId])
   @@index([playerId])
