@@ -3,6 +3,7 @@ import { Card, TeamBadge } from "@/components/ui";
 import { ActionForm, Field, SubmitButton, inputClass } from "@/components/admin/Form";
 import {
   activateSeasonAction,
+  deleteSeasonAction,
   generateFixturesAction,
   saveSeasonAction,
   saveZoneAction,
@@ -151,6 +152,27 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
               <SubmitButton variant="ghost">ตั้งเป็นฤดูกาลที่ใช้งานอยู่</SubmitButton>
             </form>
           )}
+
+          {/* ลบฤดูกาล — มีผลแข่งแล้วต้องพิมพ์ชื่อยืนยัน */}
+          <details className="mt-4 border-t border-line pt-4">
+            <summary className="cursor-pointer text-sm font-medium text-loss">ลบฤดูกาลนี้…</summary>
+            <ActionForm action={deleteSeasonAction} className="mt-3 space-y-3">
+              <input type="hidden" name="id" value={season.id} />
+              <p className="text-sm text-muted">
+                จะลบนัดทั้งหมด {matchCount} นัด ผลแข่ง เหตุการณ์ และโซนสีของฤดูกาล &quot;{season.name}&quot; ·
+                ทีมและนักเตะไม่ถูกลบ
+                {season.isActive && " · ฤดูกาลนี้แสดงบนหน้าเว็บอยู่ ลบแล้วหน้าเว็บจะแสดงฤดูกาลล่าสุดที่เหลือแทน"}
+              </p>
+              {lockedCount > 0 && (
+                <Field label={`มีผลแข่งแล้ว ${lockedCount} นัด — พิมพ์ "${season.name}" เพื่อยืนยัน`}>
+                  <input name="confirmName" autoComplete="off" required className={inputClass} placeholder={season.name} />
+                </Field>
+              )}
+              <SubmitButton variant="danger" confirm={`ลบฤดูกาล "${season.name}" และนัดทั้งหมด ${matchCount} นัด? ย้อนกลับไม่ได้`}>
+                ลบฤดูกาลถาวร
+              </SubmitButton>
+            </ActionForm>
+          </details>
         </Card>
 
         <div className="space-y-6">

@@ -134,6 +134,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   SEASON_CREATE: "สร้างฤดูกาล",
   SEASON_UPDATE: "แก้ไขฤดูกาล",
   SEASON_ACTIVATE: "เปลี่ยนฤดูกาลที่ใช้งาน",
+  SEASON_DELETE: "ลบฤดูกาล",
   SEASON_TEAM_TOGGLE: "เพิ่ม/เอาทีมออกจากฤดูกาล",
   FIXTURES_GENERATE: "สร้างตารางแข่ง",
   ZONE_SAVE: "แก้ไขโซนตารางคะแนน",

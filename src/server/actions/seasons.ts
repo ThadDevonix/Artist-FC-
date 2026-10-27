@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { db } from "@/server/db";
 import { audit, requireRole } from "@/server/auth";
 import { teamHasResults } from "@/server/guards";
@@ -9,6 +10,7 @@ import {
   fixtureSchema,
   idSchema,
   parseForm,
+  seasonDeleteSchema,
   seasonSchema,
   seasonTeamSchema,
   zoneSchema,
@@ -55,6 +57,30 @@ export async function saveSeasonAction(
 
   refreshAll();
   return { ok: "สร้างฤดูกาลแล้ว" };
+}
+
+/**
+ * ลบฤดูกาล — นัด ผลแข่ง เหตุการณ์ และโซนสีของฤดูกาลนี้ถูกลบตาม (onDelete: Cascade)
+ * ทีมและนักเตะไม่ถูกลบ เพราะใช้ร่วมกันได้หลายฤดูกาล
+ * ถ้ามีผลแข่งแล้ว (รออนุมัติ/อนุมัติแล้ว) ต้องพิมพ์ชื่อฤดูกาลยืนยัน กันลบผิดแล้วผลหายทั้งฤดูกาล
+ */
+export async function deleteSeasonAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireRole("ADMIN");
+  const parsed = parseForm(seasonDeleteSchema, formData);
+  if (!parsed.ok) return { error: parsed.error };
+
+  const season = await db.season.findUnique({ where: { id: parsed.data.id } });
+  if (!season) return { error: "ไม่พบฤดูกาล" };
+
+  const results = await db.match.count({ where: { seasonId: season.id, status: { in: LOCKED_STATUSES } } });
+  if (results > 0 && parsed.data.confirmName !== season.name) {
+    return { error: `ฤดูกาลนี้มีผลแข่ง ${results} นัด — พิมพ์ชื่อ "${season.name}" ให้ตรงเพื่อยืนยันการลบ` };
+  }
+
+  await db.season.delete({ where: { id: season.id } });
+  await audit(session.userId, "SEASON_DELETE", "Season", season.id, { name: season.name, results });
+  refreshAll();
+  redirect("/admin/seasons");
 }
 
 export async function activateSeasonAction(formData: FormData) {

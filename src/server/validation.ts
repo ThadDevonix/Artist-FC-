@@ -246,6 +246,11 @@ export const staffSchema = z
     path: ["roleLabel"],
   });
 
+export const seasonDeleteSchema = z.object({
+  id: required("ไม่พบฤดูกาล"),
+  confirmName: z.string().optional().transform((v) => (v ?? "").trim()),
+});
+
 export const rosterImportSchema = z.object({
   teamId: required("ไม่พบทีม"),
   text: required("ยังไม่มีรายชื่อให้นำเข้า"),
