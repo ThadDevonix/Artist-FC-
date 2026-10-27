@@ -49,7 +49,7 @@ export default async function OverviewPage() {
           title="ตารางคะแนน"
           action={
             <Link href="/standings" className="text-sm text-muted hover:text-ink">
-              ดูทั้งหมด →
+              ดูทั้งหมด
             </Link>
           }
           bodyClassName="pb-2"
@@ -62,7 +62,7 @@ export default async function OverviewPage() {
             title="ผลล่าสุด"
             action={
               <Link href="/fixtures?filter=results" className="text-sm text-muted hover:text-ink">
-                ทั้งหมด →
+                ทั้งหมด
               </Link>
             }
           >
@@ -73,7 +73,7 @@ export default async function OverviewPage() {
             title="นัดถัดไป"
             action={
               <Link href="/fixtures?filter=upcoming" className="text-sm text-muted hover:text-ink">
-                ทั้งหมด →
+                ทั้งหมด
               </Link>
             }
           >

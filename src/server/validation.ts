@@ -184,7 +184,7 @@ export const teamSchema = z.object({
 export const playerSchema = z.object({
   id: optionalText,
   name: required("กรุณากรอกชื่อนักเตะ"),
-  teamId: optionalText,
+  teamId: required("นักเตะต้องมีสังกัดทีม"),
   number: optionalInt.refine(
     (v) => v === null || (v >= 1 && v <= 99),
     "เบอร์เสื้อต้องอยู่ระหว่าง 1–99",
@@ -194,6 +194,11 @@ export const playerSchema = z.object({
   photoUrl: optionalText,
   birthDate: optionalDate,
   active: checkbox,
+});
+
+export const rosterImportSchema = z.object({
+  teamId: required("ไม่พบทีม"),
+  text: required("ยังไม่มีรายชื่อให้นำเข้า"),
 });
 
 export const seasonSchema = z.object({

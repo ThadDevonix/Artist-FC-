@@ -54,8 +54,8 @@ async function main() {
   const adminPaths = [
     "/admin", "/admin/matches", "/admin/matches?status=PENDING",
     `/admin/matches/${match.id}`, `/admin/matches/${pendingMatch.id}`,
-    "/admin/seasons", "/admin/teams", `/admin/teams?edit=${team.id}`,
-    "/admin/players", `/admin/players?edit=${player.id}`,
+    "/admin/seasons", "/admin/teams", "/admin/teams?q=a",
+    `/admin/teams/${team.id}`, `/admin/teams/${player.teamId}?player=${player.id}`,
     "/admin/users", "/admin/activity",
   ];
 
@@ -83,7 +83,7 @@ async function main() {
     const r = await hit(p, refCookie);
     check(`${p} เข้าได้`, r.status === 200, `HTTP ${r.status}`);
   }
-  for (const p of ["/admin/teams", "/admin/players", "/admin/users", "/admin/seasons", "/admin/activity"]) {
+  for (const p of ["/admin/teams", `/admin/teams/${team.id}`, "/admin/users", "/admin/seasons", "/admin/activity"]) {
     const r = await hit(p, refCookie);
     const blocked = r.status === 307 || r.status === 302;
     check(`${p} ถูกกัน`, blocked, `HTTP ${r.status} → ${r.location ?? "-"}`);

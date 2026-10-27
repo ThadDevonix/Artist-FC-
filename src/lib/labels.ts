@@ -90,6 +90,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   PLAYER_CREATE: "เพิ่มนักเตะ",
   PLAYER_UPDATE: "แก้ไขนักเตะ",
   PLAYER_DELETE: "ลบนักเตะ",
+  PLAYER_IMPORT: "นำเข้ารายชื่อนักเตะ",
   SEASON_CREATE: "สร้างฤดูกาล",
   SEASON_UPDATE: "แก้ไขฤดูกาล",
   SEASON_ACTIVATE: "เปลี่ยนฤดูกาลที่ใช้งาน",

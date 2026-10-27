@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Card, FormDots, POSITION_LABEL, TeamBadge } from "@/components/ui";
+import { Card, FormDots, POSITION_LABEL, TeamBadge, PlayerAvatar } from "@/components/ui";
 import { MatchList } from "@/components/MatchList";
 import {
   getActiveSeason,
@@ -104,8 +104,9 @@ export default async function TeamPage({ params }: PageProps<"/teams/[slug]">) {
                 return (
                   <li key={p.id} className="flex items-center gap-3 border-b border-line px-3 py-2.5 last:border-0 sm:px-5">
                     <span className="w-7 shrink-0 text-center text-sm text-muted tnum">{p.number ?? "—"}</span>
-                    <Link href={`/players/${p.slug}`} className="min-w-0 flex-1 truncate text-sm font-medium hover:underline">
-                      {p.name}
+                    <Link href={`/players/${p.slug}`} className="flex min-w-0 flex-1 items-center gap-2.5 text-sm font-medium hover:underline">
+                      <PlayerAvatar name={p.name} photoUrl={p.photoUrl} color={team.color} color2={team.color2} size={32} />
+                      <span className="truncate">{p.name}</span>
                     </Link>
                     {p.nationality && <span className="hidden shrink-0 text-xs text-muted sm:inline">{p.nationality}</span>}
                     <span className="w-24 shrink-0 text-right text-xs text-muted tnum">

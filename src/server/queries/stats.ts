@@ -9,6 +9,8 @@ export type LeaderRow = {
   teamName: string | null;
   teamSlug: string | null;
   teamLogo: string | null;
+  teamColor: string | null;
+  teamColor2: string | null;
   value: number;
 };
 
@@ -49,8 +51,8 @@ export async function getLeaders(
     select: {
       playerId: true,
       assistPlayerId: true,
-      player: { select: { id: true, name: true, slug: true, photoUrl: true, team: { select: { shortName: true, slug: true, logoUrl: true } } } },
-      assistPlayer: { select: { id: true, name: true, slug: true, photoUrl: true, team: { select: { shortName: true, slug: true, logoUrl: true } } } },
+      player: { select: { id: true, name: true, slug: true, photoUrl: true, team: { select: { shortName: true, slug: true, logoUrl: true, color: true, color2: true } } } },
+      assistPlayer: { select: { id: true, name: true, slug: true, photoUrl: true, team: { select: { shortName: true, slug: true, logoUrl: true, color: true, color2: true } } } },
     },
   });
 
@@ -66,6 +68,8 @@ export async function getLeaders(
       teamName: p.team?.shortName ?? null,
       teamSlug: p.team?.slug ?? null,
       teamLogo: p.team?.logoUrl ?? null,
+      teamColor: p.team?.color ?? null,
+      teamColor2: p.team?.color2 ?? null,
       value: 0,
     };
     row.value++;

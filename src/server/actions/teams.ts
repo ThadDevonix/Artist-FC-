@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { db } from "@/server/db";
 import { audit, requireRole } from "@/server/auth";
 import { teamHasResults } from "@/server/guards";
@@ -46,7 +47,8 @@ export async function saveTeamAction(
   }
 
   refreshAll();
-  return { ok: "เพิ่มสโมสรแล้ว" };
+  // ไปหน้าของทีมใหม่ต่อเลย จะได้เพิ่มนักเตะได้ทันที
+  redirect(`/admin/teams/${team.id}`);
 }
 
 export async function deleteTeamAction(formData: FormData) {
@@ -57,7 +59,9 @@ export async function deleteTeamAction(formData: FormData) {
   // มีผลแข่งที่นับคะแนนแล้ว ลบไม่ได้ ไม่งั้นตารางคะแนนย้อนหลังจะเพี้ยน
   if (await teamHasResults(parsed.data.id)) return;
 
+  // นักเตะในทีมถูกลบตามไปด้วย (onDelete: Cascade) เพราะนักเตะต้องมีสังกัดเสมอ
   await db.team.delete({ where: { id: parsed.data.id } });
   await audit(session.userId, "TEAM_DELETE", "Team", parsed.data.id);
   refreshAll();
+  redirect("/admin/teams");
 }

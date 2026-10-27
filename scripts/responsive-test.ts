@@ -95,7 +95,7 @@ async function main() {
     { path: `/admin/matches/${match.id}`, cookie },
     { path: "/admin/seasons", cookie },
     { path: "/admin/teams", cookie },
-    { path: "/admin/players", cookie },
+    { path: `/admin/teams/${team.id}`, cookie },
     { path: "/admin/users", cookie },
     { path: "/admin/activity", cookie },
   ];

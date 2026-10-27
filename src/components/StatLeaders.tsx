@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, TeamBadge } from "@/components/ui";
+import { Card, PlayerAvatar, TeamBadge } from "@/components/ui";
 import { getLeaders, LEADER_LABELS, type LeaderBoard } from "@/server/queries";
 
 const BOARDS: LeaderBoard[] = ["goals", "assists", "yellow", "red"];
@@ -16,7 +16,7 @@ export async function StatLeadersPanel({ seasonId }: { seasonId: string }) {
         title="ผู้นำสถิติ"
         action={
           <Link href="/stats" className="text-sm text-muted hover:text-ink">
-            ดูทั้งหมด →
+            ดูทั้งหมด
           </Link>
         }
       >
@@ -37,10 +37,11 @@ export async function StatLeadersPanel({ seasonId }: { seasonId: string }) {
                         href={`/players/${r.slug}`}
                         className="flex min-w-0 flex-1 items-center gap-2 hover:underline"
                       >
+                        <PlayerAvatar name={r.name} photoUrl={r.photoUrl} color={r.teamColor} color2={r.teamColor2} size={36} />
                         <span className="truncate text-sm font-medium">{r.name}</span>
                       </Link>
                       {r.teamName && (
-                        <TeamBadge name={r.teamName} logoUrl={r.teamLogo} size={18} />
+                        <TeamBadge name={r.teamName} logoUrl={r.teamLogo} color={r.teamColor ?? undefined} color2={r.teamColor2} size={18} />
                       )}
                       <span className="w-6 shrink-0 text-right text-sm font-bold tnum">
                         {r.value}

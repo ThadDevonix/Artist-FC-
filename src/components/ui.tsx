@@ -58,6 +58,57 @@ export function TeamBadge({
   );
 }
 
+/** รูปนักเตะ — ถ้าไม่มีรูปจะวาดวงกลมสีทีมพร้อมตัวอักษร (ค่าตั้งต้นคืออักษรแรกของชื่อ) */
+export function PlayerAvatar({
+  name,
+  photoUrl,
+  color,
+  color2,
+  label,
+  size = 32,
+  className = "",
+}: {
+  name: string;
+  photoUrl?: string | null;
+  color?: string | null;
+  color2?: string | null;
+  label?: string | number | null;
+  size?: number;
+  className?: string;
+}) {
+  if (photoUrl) {
+    // รูปมาจาก URL ที่ผู้ดูแลกรอกเอง (โดเมนใดก็ได้) จึงใช้ <img> แทน next/image
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={photoUrl}
+        alt={name}
+        width={size}
+        height={size}
+        loading="lazy"
+        className={`shrink-0 rounded-full bg-canvas object-cover ${className}`}
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${className}`}
+      style={{
+        width: size,
+        height: size,
+        background: teamBackground(color, color2),
+        fontSize: Math.max(10, size * 0.4),
+        textShadow: color2 ? "0 1px 2px rgb(0 0 0 / 0.55)" : undefined,
+      }}
+    >
+      {/* ข้ามสระหน้า (เ แ โ ใ ไ) ไม่งั้น "เพชร" จะได้แค่ "เ" */}
+      {label ?? name.replace(/^[เแโใไ]/, "").slice(0, 1)}
+    </span>
+  );
+}
+
 /** จุดแสดงผล 5 นัดล่าสุด — เขียว ชนะ / เทา เสมอ / แดง แพ้ */
 export function FormDots({
   form,

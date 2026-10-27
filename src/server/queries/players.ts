@@ -39,7 +39,7 @@ export async function listTeamPlayers(teamId: string) {
   return db.player.findMany({
     where: { teamId, active: true },
     orderBy: [{ number: "asc" }],
-    select: { id: true, name: true, slug: true, number: true, position: true, nationality: true },
+    select: { id: true, name: true, slug: true, number: true, position: true, nationality: true, photoUrl: true },
   });
 }
 

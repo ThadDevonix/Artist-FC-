@@ -70,7 +70,7 @@ export default async function AdminHome({ searchParams }: PageProps<"/admin">) {
       {admin && (
         <Card
           title="ผลที่รออนุมัติ"
-          action={<Link href="/admin/matches?status=PENDING" className="text-sm text-muted hover:text-ink">ดูทั้งหมด →</Link>}
+          action={<Link href="/admin/matches?status=PENDING" className="text-sm text-muted hover:text-ink">ดูทั้งหมด</Link>}
         >
           {pending.length === 0 ? (
             <p className="px-5 py-10 text-center text-sm text-muted">ไม่มีผลค้างอนุมัติ</p>
@@ -102,7 +102,7 @@ export default async function AdminHome({ searchParams }: PageProps<"/admin">) {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card
           title={admin ? "นัดถัดไป" : "นัดที่คุณต้องตัดสิน"}
-          action={<Link href="/admin/matches" className="text-sm text-muted hover:text-ink">ทั้งหมด →</Link>}
+          action={<Link href="/admin/matches" className="text-sm text-muted hover:text-ink">ทั้งหมด</Link>}
         >
           {myNext.length === 0 ? (
             <p className="px-5 py-10 text-center text-sm text-muted">ไม่มีนัดที่รอแข่ง</p>
@@ -126,7 +126,7 @@ export default async function AdminHome({ searchParams }: PageProps<"/admin">) {
         {admin && (
           <Card
             title="ประวัติการแก้ไขล่าสุด"
-            action={<Link href="/admin/activity" className="text-sm text-muted hover:text-ink">ทั้งหมด →</Link>}
+            action={<Link href="/admin/activity" className="text-sm text-muted hover:text-ink">ทั้งหมด</Link>}
           >
             {recentLogs.length === 0 ? (
               <p className="px-5 py-10 text-center text-sm text-muted">ยังไม่มีประวัติ</p>

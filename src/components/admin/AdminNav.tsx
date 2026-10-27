@@ -7,8 +7,7 @@ const ALL = [
   { href: "/admin", label: "ภาพรวม", adminOnly: false },
   { href: "/admin/matches", label: "บันทึกผล", adminOnly: false },
   { href: "/admin/seasons", label: "ฤดูกาล", adminOnly: true },
-  { href: "/admin/teams", label: "สโมสร", adminOnly: true },
-  { href: "/admin/players", label: "นักเตะ", adminOnly: true },
+  { href: "/admin/teams", label: "สโมสร/นักเตะ", adminOnly: true },
   { href: "/admin/users", label: "ผู้ใช้งาน", adminOnly: true },
   { href: "/admin/activity", label: "ประวัติการแก้ไข", adminOnly: true },
 ];

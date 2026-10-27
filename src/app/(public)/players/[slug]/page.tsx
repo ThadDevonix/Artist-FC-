@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Card, POSITION_LABEL, TeamBadge, teamBackground } from "@/components/ui";
+import { Card, PlayerAvatar, POSITION_LABEL, TeamBadge } from "@/components/ui";
 import { EventIcon, eventLabel } from "@/components/events";
 import { getActiveSeason, getPlayerBySlug, listPlayerEvents } from "@/server/queries";
 import { ageFrom, decodeParam, minuteLabel, thaiDate } from "@/lib/format";
@@ -25,12 +25,14 @@ export default async function PlayerPage({ params }: PageProps<"/players/[slug]"
     <div className="space-y-6">
       <Card bodyClassName="px-4 pb-5 sm:px-6">
         <div className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-center">
-          <span
-            className="flex size-16 shrink-0 items-center justify-center rounded-full text-xl font-bold text-white sm:size-20 sm:text-2xl"
-            style={{ background: teamBackground(player.team?.color, player.team?.color2) }}
-          >
-            {player.number ?? player.name.slice(0, 1)}
-          </span>
+          <PlayerAvatar
+            name={player.name}
+            photoUrl={player.photoUrl}
+            color={player.team.color}
+            color2={player.team.color2}
+            label={player.number}
+            size={80}
+          />
           <div className="min-w-0">
             <h1 className="text-xl font-bold sm:text-2xl">{player.name}</h1>
             <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">

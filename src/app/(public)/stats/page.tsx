@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, TeamBadge } from "@/components/ui";
+import { Card, PlayerAvatar, TeamBadge } from "@/components/ui";
 import { getSeasonBySlug, getStandings } from "@/server/queries";
 import { getCleanSheets, getLeaders, LEADER_LABELS, type LeaderBoard } from "@/server/queries";
 import { signed } from "@/lib/format";
@@ -42,12 +42,13 @@ export default async function StatsPage({ searchParams }: PageProps<"/stats">) {
                     className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0 sm:px-5"
                   >
                     <span className="w-5 shrink-0 text-sm text-muted tnum">{i + 1}</span>
-                    <Link href={`/players/${r.slug}`} className="min-w-0 flex-1 truncate text-sm font-medium hover:underline">
-                      {r.name}
+                    <Link href={`/players/${r.slug}`} className="flex min-w-0 flex-1 items-center gap-3 text-sm font-medium hover:underline">
+                      <PlayerAvatar name={r.name} photoUrl={r.photoUrl} color={r.teamColor} color2={r.teamColor2} size={48} />
+                      <span className="truncate">{r.name}</span>
                     </Link>
                     {r.teamSlug && (
                       <Link href={`/teams/${r.teamSlug}`} className="flex shrink-0 items-center gap-1.5 text-xs text-muted hover:text-ink">
-                        <TeamBadge name={r.teamName ?? ""} logoUrl={r.teamLogo} size={18} />
+                        <TeamBadge name={r.teamName ?? ""} logoUrl={r.teamLogo} color={r.teamColor ?? undefined} color2={r.teamColor2} size={18} />
                         <span className="hidden sm:inline">{r.teamName}</span>
                       </Link>
                     )}
