@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, TeamBadge } from "@/components/ui";
 import { ActionForm, Field, SubmitButton, inputClass } from "@/components/admin/Form";
+import { TypeToConfirm } from "@/components/admin/TypeToConfirm";
 import {
   activateSeasonAction,
   deleteSeasonAction,
@@ -153,7 +154,7 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
             </form>
           )}
 
-          {/* ลบฤดูกาล — มีผลแข่งแล้วต้องพิมพ์ชื่อยืนยัน */}
+          {/* ลบฤดูกาล — ต้องพิมพ์ชื่อฤดูกาลยืนยันทุกครั้ง */}
           <details className="mt-4 border-t border-line pt-4">
             <summary className="cursor-pointer text-sm font-medium text-loss">ลบฤดูกาลนี้…</summary>
             <ActionForm action={deleteSeasonAction} className="mt-3 space-y-3">
@@ -164,13 +165,9 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
                 {season.isActive && " · ฤดูกาลนี้แสดงบนหน้าเว็บอยู่ ลบแล้วหน้าเว็บจะแสดงฤดูกาลล่าสุดที่เหลือแทน"}
               </p>
               {lockedCount > 0 && (
-                <Field label={`มีผลแข่งแล้ว ${lockedCount} นัด — พิมพ์ "${season.name}" เพื่อยืนยัน`}>
-                  <input name="confirmName" autoComplete="off" required className={inputClass} placeholder={season.name} />
-                </Field>
+                <p className="text-sm font-medium text-loss">⚠ มีผลแข่งแล้ว {lockedCount} นัด จะหายทั้งหมด ย้อนกลับไม่ได้</p>
               )}
-              <SubmitButton variant="danger" confirm={`ลบฤดูกาล "${season.name}" และนัดทั้งหมด ${matchCount} นัด? ย้อนกลับไม่ได้`}>
-                ลบฤดูกาลถาวร
-              </SubmitButton>
+              <TypeToConfirm expected={season.name} label="ลบฤดูกาลถาวร" />
             </ActionForm>
           </details>
         </Card>

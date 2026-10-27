@@ -62,7 +62,7 @@ export async function saveSeasonAction(
 /**
  * ลบฤดูกาล — นัด ผลแข่ง เหตุการณ์ และโซนสีของฤดูกาลนี้ถูกลบตาม (onDelete: Cascade)
  * ทีมและนักเตะไม่ถูกลบ เพราะใช้ร่วมกันได้หลายฤดูกาล
- * ถ้ามีผลแข่งแล้ว (รออนุมัติ/อนุมัติแล้ว) ต้องพิมพ์ชื่อฤดูกาลยืนยัน กันลบผิดแล้วผลหายทั้งฤดูกาล
+ * ต้องพิมพ์ชื่อฤดูกาลยืนยันทุกครั้ง (หน้าเว็บกันไว้แล้ว ที่นี่ตรวจซ้ำ เผื่อมีคนส่งฟอร์มตรง)
  */
 export async function deleteSeasonAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireRole("ADMIN");
@@ -73,8 +73,8 @@ export async function deleteSeasonAction(_prev: ActionState, formData: FormData)
   if (!season) return { error: "ไม่พบฤดูกาล" };
 
   const results = await db.match.count({ where: { seasonId: season.id, status: { in: LOCKED_STATUSES } } });
-  if (results > 0 && parsed.data.confirmName !== season.name) {
-    return { error: `ฤดูกาลนี้มีผลแข่ง ${results} นัด — พิมพ์ชื่อ "${season.name}" ให้ตรงเพื่อยืนยันการลบ` };
+  if (parsed.data.confirmName !== season.name) {
+    return { error: `พิมพ์ชื่อ "${season.name}" ให้ตรงเพื่อยืนยันการลบ` };
   }
 
   await db.season.delete({ where: { id: season.id } });

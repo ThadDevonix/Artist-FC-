@@ -1,6 +1,6 @@
 /**
  * ทดสอบการลบฤดูกาลผ่าน HTTP จริง
- *   มีผลแข่งแล้ว → ไม่พิมพ์ชื่อ/พิมพ์ผิด ถูกปฏิเสธ · พิมพ์ถูก → ลบได้ นัดหายตาม แต่ทีมยังอยู่
+ *   ไม่พิมพ์ชื่อ/พิมพ์ผิด ถูกปฏิเสธ · พิมพ์ถูก → ลบได้ นัดหายตาม แต่ทีมยังอยู่
  * ใช้ฤดูกาล/ทีมชั่วคราว แล้วลบทิ้งใน finally เสมอ
  */
 import "dotenv/config";
@@ -57,6 +57,8 @@ async function main() {
       return (await fetch(url, { method: "POST", body, headers: { cookie }, redirect: "manual" })).text();
     };
 
+    const blank = await submit({ confirmName: "" });
+    check("ไม่พิมพ์ชื่อ → ไม่ลบ", !!(await db.season.findUnique({ where: { id: season.id } })) && blank.includes("พิมพ์ชื่อ"));
     const wrong = await submit({ confirmName: "ชื่อผิด" });
     check("พิมพ์ชื่อผิด → ไม่ลบ", !!(await db.season.findUnique({ where: { id: season.id } })) && wrong.includes("พิมพ์ชื่อ"));
 
