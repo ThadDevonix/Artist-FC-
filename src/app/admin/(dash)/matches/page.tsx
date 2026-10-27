@@ -10,6 +10,10 @@ import type { MatchStatus } from "@/generated/prisma/enums";
 
 export const metadata = { title: "บันทึกผลการแข่งขัน" };
 
+/** ปุ่มของแต่ละนัด — ยังไม่เริ่มแข่ง = เริ่ม (สีส้ม) · เริ่มไปแล้วหรือจบแล้ว = แก้ไข */
+const notStarted = (status: string) => status === "SCHEDULED" || status === "POSTPONED";
+const actionLabel = (status: string) => (notStarted(status) ? "เริ่มการแข่งขัน" : "แก้ไขการแข่งขัน");
+
 /** สถานะที่ให้กรองได้บนหน้านี้ (ไม่รวม CANCELLED ที่ใช้น้อย) */
 const FILTERABLE: MatchStatus[] = ["SCHEDULED", "LIVE", "PENDING", "FINISHED", "POSTPONED"];
 
@@ -133,7 +137,7 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
                     <span className="truncate text-muted">
                       ผู้ตัดสิน {m.referee?.name ?? "—"}
                     </span>
-                    <span className="shrink-0 font-medium text-brand">บันทึกผล →</span>
+                    <span className={`shrink-0 font-medium ${notStarted(m.status) ? "text-brand" : "text-ink"}`}>{actionLabel(m.status)} →</span>
                   </div>
                 </Link>
               </li>
@@ -151,7 +155,7 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
                   <th className="w-36 py-2 text-left font-medium">วันเวลา</th>
                   <th className="hidden w-28 py-2 text-left font-medium lg:table-cell">ผู้ตัดสิน</th>
                   <th className="w-24 py-2 text-left font-medium">สถานะ</th>
-                  <th className="w-28 py-2 pr-4 text-right font-medium">จัดการ</th>
+                  <th className="w-36 py-2 pr-4 text-right font-medium">จัดการ</th>
                 </tr>
               </thead>
               <tbody>
@@ -174,8 +178,15 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
                     <td className="hidden py-2.5 text-xs text-muted lg:table-cell">{m.referee?.name ?? "—"}</td>
                     <td className="py-2.5"><StatusPill status={m.status} /></td>
                     <td className="py-2.5 pr-4 text-right">
-                      <Link href={`/admin/matches/${m.id}`} className="inline-block whitespace-nowrap rounded-lg border border-line px-3 py-1 text-xs font-medium hover:border-brand hover:text-brand">
-                        บันทึกผล
+                      <Link
+                        href={`/admin/matches/${m.id}`}
+                        className={`inline-block whitespace-nowrap rounded-lg border px-3 py-1 text-xs font-medium transition ${
+                          notStarted(m.status)
+                            ? "border-brand bg-brand text-white hover:opacity-90"
+                            : "border-line hover:border-brand hover:text-brand"
+                        }`}
+                      >
+                        {actionLabel(m.status)}
                       </Link>
                     </td>
                   </tr>
