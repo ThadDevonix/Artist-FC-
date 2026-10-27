@@ -119,7 +119,14 @@ async function main() {
     await submitForm(url, refCookie, { teamId: target.homeTeamId, type: "YELLOW", playerId: scorer.id, minute: "30" }, 'name="minute"');
     const yellow = await db.matchEvent.findFirst({ where: { matchId: target.id, type: "YELLOW" } });
     check("ไม่เลือกผู้ให้ใบ → นับเป็นผู้ตัดสินที่ 1", yellow?.issuedById === refOfficial.id);
-    const outsider = await db.official.findFirstOrThrow({ where: { id: { not: refOfficial.id } } });
+    // คนนอก = ผู้ตัดสินที่ไม่ได้อยู่ช่องไหนเลยในทีมผู้ตัดสินของนัดนี้
+    const crew = await db.match.findUniqueOrThrow({
+      where: { id: target.id },
+      select: { refereeId: true, assistant1Id: true, assistant2Id: true, fourthOfficialId: true },
+    });
+    const outsider = await db.official.findFirstOrThrow({
+      where: { id: { notIn: Object.values(crew).filter((v): v is string => v !== null) } },
+    });
     const badIssuer = await submitForm(
       url, refCookie,
       { teamId: target.homeTeamId, type: "YELLOW", playerId: scorer.id, minute: "31", issuedById: outsider.id },
