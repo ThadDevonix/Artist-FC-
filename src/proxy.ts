@@ -33,6 +33,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     "/admin/seasons/:path*",
+    "/admin/schedule/:path*",
     "/admin/teams/:path*",
     "/admin/players/:path*",
     "/admin/users/:path*",

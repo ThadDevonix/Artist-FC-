@@ -55,6 +55,18 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
         {!admin && (
           <p className="text-sm text-muted">แสดงเฉพาะนัดที่คุณเป็นผู้ตัดสิน</p>
         )}
+        {admin && (
+          <Link
+            href={`/admin/schedule${round ? `?round=${round}` : ""}`}
+            className="inline-flex items-center gap-2 rounded-lg border-2 border-brand px-4 py-2 text-sm font-semibold text-brand transition hover:bg-brand hover:text-white"
+          >
+            <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+              <rect x="3.5" y="5" width="17" height="15" rx="2" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M3.5 9.5h17M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+            จัดวันเวลาแข่ง
+          </Link>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">

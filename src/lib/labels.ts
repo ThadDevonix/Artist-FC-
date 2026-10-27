@@ -114,6 +114,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   MATCH_APPROVE: "อนุมัติผล",
   MATCH_REJECT: "ตีกลับผล",
   MATCH_UPDATE: "แก้ไขรายละเอียดนัด",
+  MATCH_SCHEDULE: "จัดวันเวลาแข่ง",
   MATCH_LIVE_START: "เริ่มถ่ายทอดสด",
   MATCH_LIVE_PHASE: "เปลี่ยนช่วงเวลาถ่ายทอดสด",
   EVENT_ADD: "เพิ่มเหตุการณ์",

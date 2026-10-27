@@ -4,6 +4,7 @@ import { db } from "@/server/db";
 import { audit, requireRole, requireSession, type Session } from "@/server/auth";
 import { loadEditableMatch } from "@/server/guards";
 import { scoreFromEvents, syncLiveScore } from "@/server/live";
+import { fromThaiDateTime } from "@/lib/format";
 import {
   matchDetailSchema,
   livePhaseSchema,
@@ -204,4 +205,38 @@ export async function updateMatchAction(_prev: ActionState, formData: FormData):
   await audit(session.userId, "MATCH_UPDATE", "Match", matchId);
   refreshAll();
   return { ok: "บันทึกรายละเอียดนัดแล้ว" };
+}
+
+/**
+ * จัดวันเวลา/สนามของหลายนัดพร้อมกัน (หน้า "จัดวันเวลาแข่ง")
+ * แต่ละคู่ในนัดเดียวกันแข่งคนละวันได้ — ฟอร์มส่งมาเป็น date_<id>, time_<id>, venue_<id>
+ * ไม่แตะนัดที่กำลังถ่ายทอดสด (เวลาเตะของนัดนั้นถูกบันทึกตอนกดเริ่มแล้ว)
+ */
+export async function saveScheduleAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireRole("ADMIN");
+  const ids = formData.getAll("matchId").filter((v): v is string => typeof v === "string");
+  if (ids.length === 0) return { error: "ไม่มีนัดให้บันทึก" };
+
+  const matches = await db.match.findMany({ where: { id: { in: ids } }, select: { id: true, status: true } });
+  const updates = [];
+  for (const m of matches) {
+    if (m.status === "LIVE") continue;
+    const date = String(formData.get(`date_${m.id}`) ?? "").trim();
+    const time = String(formData.get(`time_${m.id}`) ?? "").trim();
+    const venue = String(formData.get(`venue_${m.id}`) ?? "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
+      return { error: "กรุณากรอกวันและเวลาให้ครบทุกคู่" };
+    }
+    updates.push(
+      db.match.update({
+        where: { id: m.id },
+        data: { kickoffAt: fromThaiDateTime(date, time), venue: venue || null },
+      }),
+    );
+  }
+
+  await db.$transaction(updates);
+  await audit(session.userId, "MATCH_SCHEDULE", "Match", ids[0], { matches: updates.length });
+  refreshAll();
+  return { ok: `บันทึกวันเวลาแข่ง ${updates.length} คู่แล้ว` };
 }

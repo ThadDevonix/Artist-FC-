@@ -220,6 +220,11 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
                   {preview.hasBye && <span className="block text-xs text-muted">จำนวนทีมเป็นเลขคี่ — แต่ละนัดจะมี 1 ทีมได้พัก</span>}
                 </p>
 
+                <p className="text-xs text-muted">
+                  วันเวลาด้านล่างเป็นแค่ค่าตั้งต้น — สร้างแล้วไปจัดวันจริงของแต่ละคู่ได้ที่{" "}
+                  <Link href="/admin/schedule" className="text-brand hover:underline">จัดวันเวลาแข่ง</Link>
+                </p>
+
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="วันแข่งนัดแรก">
                     <input type="date" name="startDate" defaultValue={season.startDate?.toISOString().slice(0, 10) ?? ""} className={inputClass} />

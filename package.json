@@ -19,7 +19,8 @@
     "test:roster": "tsx scripts/roster-test.ts",
     "test:live": "tsx scripts/live-test.ts",
     "test:season": "tsx scripts/season-delete-test.ts",
-    "test": "npm run test:logic && npm run test:theme && npm run test:workflow && npm run test:pages && npm run test:responsive && npm run test:login && npm run test:flow && npm run test:roster && npm run test:live && npm run test:season",
+    "test:schedule": "tsx scripts/schedule-test.ts",
+    "test": "npm run test:logic && npm run test:theme && npm run test:workflow && npm run test:pages && npm run test:responsive && npm run test:login && npm run test:flow && npm run test:roster && npm run test:live && npm run test:season && npm run test:schedule",
     "postinstall": "prisma generate",
     "test:theme": "tsx scripts/theme-test.ts",
     "test:responsive": "tsx scripts/responsive-test.ts"
