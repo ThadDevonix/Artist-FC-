@@ -55,7 +55,7 @@ async function main() {
     "/admin", "/admin/matches", "/admin/matches?status=PENDING",
     `/admin/matches/${match.id}`, `/admin/matches/${pendingMatch.id}`,
     "/admin/seasons", "/admin/teams", "/admin/teams?q=a",
-    `/admin/teams/${team.id}`, `/admin/teams/${player.teamId}?player=${player.id}`,
+    `/admin/teams/${team.id}`, `/admin/teams/${team.id}?edit=team`, `/admin/teams/${player.teamId}?player=${player.id}`,
     "/admin/users", "/admin/activity",
   ];
 

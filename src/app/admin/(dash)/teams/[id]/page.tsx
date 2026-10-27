@@ -4,6 +4,7 @@ import { Card, PlayerAvatar, POSITION_LABEL, TeamBadge } from "@/components/ui";
 import { SubmitButton } from "@/components/admin/Form";
 import { PlayerForm } from "@/components/admin/PlayerForm";
 import { RosterImport } from "@/components/admin/RosterImport";
+import { Modal } from "@/components/admin/Modal";
 import { TeamForm } from "@/components/admin/TeamForm";
 import { deletePlayerAction, deleteTeamAction } from "@/server/actions";
 import { requireRole } from "@/server/auth";
@@ -19,6 +20,7 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
   const { id } = await params;
   const sp = await searchParams;
   const playerId = typeof sp.player === "string" ? sp.player : undefined;
+  const editTeam = sp.edit === "team"; // ลิงก์ ?edit=team จะเปิดป๊อปอัพแก้ไขสโมสรให้ทันที
 
   const [team, players, allTeams, editingPlayer, withResults] = await Promise.all([
     getTeamById(id),
@@ -38,15 +40,42 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
     <div className="space-y-6">
       <div>
         <Link href="/admin/teams" className="text-sm text-muted hover:text-ink">‹ สโมสรทั้งหมด</Link>
-        <div className="mt-2 flex items-center gap-3">
+        <div className="mt-2 flex flex-wrap items-center gap-3">
           <TeamBadge name={team.name} code={team.code} logoUrl={team.logoUrl} color={team.color} color2={team.color2} size={48} />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="truncate text-2xl font-bold">{team.name}</h1>
             <p className="text-sm text-muted">
               {team.code} · นักเตะ {activeCount} คน ·{" "}
               <Link href={`/teams/${team.slug}`} className="hover:text-brand">ดูหน้าเว็บ ›</Link>
             </p>
           </div>
+          <Modal
+            title="แก้ไขสโมสร"
+            defaultOpen={editTeam}
+            triggerClassName="inline-flex shrink-0 items-center gap-2 rounded-lg border-2 border-brand px-4 py-2 text-sm font-semibold text-brand transition hover:bg-brand hover:text-white"
+            trigger={
+              <>
+                <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+                  <path d="M4 20h4L18.5 9.5a2.1 2.1 0 00-4-4L4 16v4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                  <path d="M13.5 6.5l4 4" stroke="currentColor" strokeWidth="1.8" />
+                </svg>
+                แก้ไขสโมสร
+              </>
+            }
+          >
+            <TeamForm team={team} />
+            {!withResults.has(team.id) && (
+              <form action={deleteTeamAction} className="mt-5 border-t border-line pt-4">
+                <input type="hidden" name="id" value={team.id} />
+                <SubmitButton
+                  variant="danger"
+                  confirm={`ลบ ${team.name}? นักเตะทั้ง ${players.length} คนในทีมจะถูกลบไปด้วย`}
+                >
+                  ลบสโมสรนี้
+                </SubmitButton>
+              </form>
+            )}
+          </Modal>
         </div>
       </div>
 
@@ -56,12 +85,18 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
           <Card title={editing ? "แก้ไขนักเตะ" : "เพิ่มนักเตะ"} bodyClassName="px-4 pb-5 sm:px-5">
             <PlayerForm teamId={team.id} player={editing} teams={allTeams} cancelHref={base} />
           </Card>
+
+          {!editing && (
+            <Card title="นำเข้านักเตะหลายคน" bodyClassName="px-4 pb-5 sm:px-5">
+              <RosterImport teamId={team.id} takenNumbers={takenNumbers} />
+            </Card>
+          )}
         </div>
 
         <div className="space-y-6">
           <Card title={`รายชื่อนักเตะ (${players.length})`} bodyClassName="overflow-x-auto">
             {players.length === 0 ? (
-              <p className="px-5 py-12 text-center text-sm text-muted">ยังไม่มีนักเตะ เพิ่มทีละคนหรือนำเข้าจากไฟล์ด้านล่าง</p>
+              <p className="px-5 py-12 text-center text-sm text-muted">ยังไม่มีนักเตะ เพิ่มทีละคนหรือนำเข้าจากไฟล์</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
@@ -115,24 +150,6 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
             )}
           </Card>
 
-          <Card title="นำเข้านักเตะหลายคน" bodyClassName="px-4 pb-5 sm:px-5">
-            <RosterImport teamId={team.id} takenNumbers={takenNumbers} />
-          </Card>
-
-          <Card title="ข้อมูลสโมสร" bodyClassName="px-4 pb-5 sm:px-5">
-            <TeamForm team={team} />
-            {!withResults.has(team.id) && (
-              <form action={deleteTeamAction} className="mt-5 border-t border-line pt-4">
-                <input type="hidden" name="id" value={team.id} />
-                <SubmitButton
-                  variant="danger"
-                  confirm={`ลบ ${team.name}? นักเตะทั้ง ${players.length} คนในทีมจะถูกลบไปด้วย`}
-                >
-                  ลบสโมสรนี้
-                </SubmitButton>
-              </form>
-            )}
-          </Card>
         </div>
       </div>
     </div>

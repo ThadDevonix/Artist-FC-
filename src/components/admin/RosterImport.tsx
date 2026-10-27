@@ -18,6 +18,7 @@ import { importPlayersAction } from "@/server/actions";
  */
 export function RosterImport({ teamId, takenNumbers }: { teamId: string; takenNumbers: number[] }) {
   const [text, setText] = useState("");
+  const [dragging, setDragging] = useState(false);
   const [state, formAction] = useActionState(importPlayersAction, {});
 
   // นำเข้าสำเร็จแล้วล้างกล่องข้อความ (ปรับ state ระหว่าง render ตามแนวทางของ React แทน useEffect)
@@ -49,27 +50,48 @@ export function RosterImport({ teamId, takenNumbers }: { teamId: string; takenNu
       <input type="hidden" name="teamId" value={teamId} />
 
       <p className="text-sm text-muted">
-        ก๊อปตารางจาก Excel / Google Sheets มาวาง หรือเลือกไฟล์ CSV · คอลัมน์ตามลำดับ:{" "}
-        <span className="font-medium text-ink">{ROSTER_COLUMNS.join(" | ")}</span> — ต้องมีแค่ชื่อ ที่เหลือเว้นว่างได้
+        คอลัมน์ตามลำดับ: <span className="font-medium text-ink">{ROSTER_COLUMNS.join(" | ")}</span> — ต้องมีแค่ชื่อ
+        ที่เหลือเว้นว่างได้
       </p>
       <p className="text-xs text-muted">
         ตำแหน่ง: GK / DF / MF / FW หรือพิมพ์ภาษาไทย (กองหน้า ฯลฯ) · วันเกิด: 1998-05-12 หรือ 12/05/2541
       </p>
 
-      <div className="flex flex-wrap gap-2">
-        <label className="cursor-pointer rounded-lg border border-line bg-surface px-3 py-1.5 text-sm hover:bg-canvas">
-          เลือกไฟล์ CSV
-          <input
-            type="file"
-            accept=".csv,.txt,text/csv"
-            className="sr-only"
-            onChange={(e) => { loadFile(e.target.files?.[0]); e.target.value = ""; }}
-          />
-        </label>
-        <button type="button" onClick={downloadTemplate} className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm hover:bg-canvas">
-          ดาวน์โหลดไฟล์ตัวอย่าง
-        </button>
-      </div>
+      {/* กดเลือกหรือลากไฟล์มาวางก็ได้ */}
+      <label
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => { e.preventDefault(); setDragging(false); loadFile(e.dataTransfer.files[0]); }}
+        className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-5 text-center transition ${
+          dragging ? "border-brand bg-brand-soft" : "border-brand/50 hover:border-brand hover:bg-brand-soft"
+        }`}
+      >
+        <svg viewBox="0 0 24 24" className="size-8 text-brand" fill="none" aria-hidden>
+          <path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+        <span className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white">เลือกไฟล์ CSV</span>
+        <span className="text-xs text-muted">หรือลากไฟล์มาวางตรงนี้</span>
+        <input
+          type="file"
+          accept=".csv,.txt,text/csv"
+          className="sr-only"
+          onChange={(e) => { loadFile(e.target.files?.[0]); e.target.value = ""; }}
+        />
+      </label>
+
+      <button
+        type="button"
+        onClick={downloadTemplate}
+        className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-brand px-4 py-2 text-sm font-semibold text-brand transition hover:bg-brand hover:text-white"
+      >
+        <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+          <path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M4 19h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        ดาวน์โหลดไฟล์ตัวอย่าง
+      </button>
+
+      <p className="text-center text-xs text-muted">— หรือก๊อปตารางจาก Excel / Google Sheets มาวางด้านล่าง —</p>
 
       <textarea
         name="text"
@@ -106,8 +128,6 @@ export function RosterImport({ teamId, takenNumbers }: { teamId: string; takenNu
                   <th className="px-2 py-1.5 text-left font-medium">ชื่อ</th>
                   <th className="px-2 py-1.5 text-center font-medium">เบอร์</th>
                   <th className="px-2 py-1.5 text-left font-medium">ตำแหน่ง</th>
-                  <th className="hidden px-2 py-1.5 text-left font-medium sm:table-cell">สัญชาติ</th>
-                  <th className="hidden px-2 py-1.5 text-left font-medium sm:table-cell">วันเกิด</th>
                 </tr>
               </thead>
               <tbody>
@@ -122,8 +142,6 @@ export function RosterImport({ teamId, takenNumbers }: { teamId: string; takenNu
                     </td>
                     <td className="px-2 py-1.5 text-center tnum">{r.number ?? "—"}</td>
                     <td className="px-2 py-1.5">{POSITION_LABEL[r.position]}</td>
-                    <td className="hidden px-2 py-1.5 sm:table-cell">{r.nationality ?? "—"}</td>
-                    <td className="hidden px-2 py-1.5 sm:table-cell tnum">{r.birthDate ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
