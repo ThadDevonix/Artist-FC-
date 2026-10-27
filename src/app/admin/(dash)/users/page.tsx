@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card, EditingTitle } from "@/components/ui";
 import { ActionForm, Field, SubmitButton, inputClass } from "@/components/admin/Form";
 import { EditLink } from "@/components/admin/EditLink";
+import { PasswordField } from "@/components/admin/PasswordField";
 import { EDIT_FORM_ID, editingCardClass, editingRowClass } from "@/components/admin/editing";
 import { deleteUserAction, saveUserAction } from "@/server/actions";
 import { requireRole } from "@/server/auth";
@@ -48,12 +49,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/admin/user
             <Field label="อีเมล">
               <input type="email" name="email" defaultValue={editing?.email ?? ""} required className={inputClass} />
             </Field>
-            <Field
-              label="รหัสผ่าน"
-              hint={editing ? "เว้นว่างไว้ถ้าไม่ต้องการเปลี่ยน" : "อย่างน้อย 8 ตัวอักษร"}
-            >
-              <input type="password" name="password" autoComplete="new-password" className={inputClass} />
-            </Field>
+            <PasswordField editing={!!editing} />
             <Field label="สิทธิ์">
               <select name="role" defaultValue={editing?.role ?? "REFEREE"} className={inputClass}>
                 <option value="REFEREE">กรรมการ</option>
