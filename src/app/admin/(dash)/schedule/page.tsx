@@ -1,13 +1,24 @@
 import { BackLink, Card, StatusPill, TeamBadge } from "@/components/ui";
-import { ActionForm, SubmitButton, inputClass } from "@/components/admin/Form";
+import { ActionForm, Field, SubmitButton, inputClass } from "@/components/admin/Form";
 import { FillAll } from "@/components/admin/FillAll";
 import { RoundPicker } from "@/components/RoundPicker";
-import { saveScheduleAction } from "@/server/actions";
+import { autoScheduleAction, saveScheduleAction } from "@/server/actions";
 import { requireRole } from "@/server/auth";
 import { getSeasonBySlug, listMatchesForAdmin, listRoundOptions } from "@/server/queries";
 import { toThaiDate, toThaiTime } from "@/lib/format";
 
 export const metadata = { title: "จัดวันเวลาแข่ง" };
+
+/** วันในสัปดาห์ เรียงแบบไทย (จันทร์ก่อน) — value ตาม Date.getDay(): 0 = อาทิตย์ */
+const WEEKDAYS = [
+  { value: 1, label: "จ" },
+  { value: 2, label: "อ" },
+  { value: 3, label: "พ" },
+  { value: 4, label: "พฤ" },
+  { value: 5, label: "ศ" },
+  { value: 6, label: "ส" },
+  { value: 0, label: "อา" },
+];
 
 /**
  * จัดวัน เวลา และสนามของทุกคู่ในนัดเดียวกันจากหน้าเดียว
@@ -24,6 +35,7 @@ export default async function SchedulePage({ searchParams }: PageProps<"/admin/s
   const round = rounds.some((r) => r.round === asked) ? asked : rounds[0]?.round;
   const matches = round ? await listMatchesForAdmin(season.id, { round }) : [];
   const query = typeof sp.season === "string" ? `season=${encodeURIComponent(sp.season)}` : "";
+  const unset = matches.filter((m) => !m.kickoffAt).length;
 
   return (
     <div className="space-y-4">
@@ -33,7 +45,7 @@ export default async function SchedulePage({ searchParams }: PageProps<"/admin/s
       <div>
         <h1 className="text-2xl font-bold">จัดวันเวลาแข่ง</h1>
         <p className="mt-1 text-sm text-muted">
-          ฤดูกาล {season.name} · แต่ละคู่ในนัดเดียวกันตั้งคนละวัน/เวลาได้ แล้วกดบันทึกครั้งเดียว
+          ฤดูกาล {season.name} · แต่ละคู่ในนัดเดียวกันตั้งคนละวัน/เวลาได้ แล้วกดบันทึกครั้งเดียว · ยังไม่รู้วันก็เว้นว่างไว้ได้
         </p>
       </div>
 
@@ -43,9 +55,48 @@ export default async function SchedulePage({ searchParams }: PageProps<"/admin/s
         </Card>
       ) : (
         <>
+          <details className="rounded-xl border border-line bg-surface" open={unset === matches.length}>
+            <summary className="cursor-pointer px-4 py-3 text-sm font-medium sm:px-5">ตั้งวันเวลาทุกนัดอัตโนมัติ</summary>
+            <ActionForm action={autoScheduleAction} className="space-y-3 px-4 pb-5 sm:px-5">
+              <input type="hidden" name="seasonId" value={season.id} />
+              <p className="text-sm text-muted">
+                1 นัดต่อสัปดาห์ แล้วกระจายคู่ลงวันที่เลือก (แบบพรีเมียร์ลีก) — ใช้กับทุกคู่ที่ยังไม่แข่ง ทับวันเวลาเดิม
+              </p>
+
+              <Field label="วันเริ่ม" hint="นัดแรกที่ยังไม่แข่งอยู่ใน 7 วันนับจากวันนี้ นัดถัดไปเลื่อนไปทีละสัปดาห์">
+                <input type="date" name="startDate" defaultValue={season.startDate ? toThaiDate(season.startDate) : ""} className={inputClass} />
+              </Field>
+
+              <fieldset>
+                <legend className="mb-1 text-sm font-medium">วันที่แข่ง</legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {WEEKDAYS.map((d) => (
+                    <label key={d.value} className="cursor-pointer">
+                      <input type="checkbox" name="weekdays" value={d.value} className="peer sr-only" />
+                      <span className="inline-flex size-10 items-center justify-center rounded-full border border-line text-sm font-medium text-muted transition peer-checked:border-brand peer-checked:bg-brand peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-brand">
+                        {d.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+                <Field label="เวลาเตะ" hint="ใส่ได้หลายเวลา คั่นด้วยลูกน้ำ — คู่ในวันเดียวกันไล่ใช้ตามลำดับ">
+                  <input name="kickoffTimes" defaultValue="19:00, 20:30" className={inputClass} placeholder="19:00, 20:30" />
+                </Field>
+                <Field label="แต่ละนัดห่างกัน (สัปดาห์)">
+                  <input type="number" name="weeksBetween" min={1} max={8} defaultValue={1} className={inputClass} />
+                </Field>
+              </div>
+
+              <SubmitButton confirm="ตั้งวันเวลาใหม่ให้ทุกคู่ที่ยังไม่แข่ง (ทับของเดิม) ยืนยันไหม?">ตั้งวันเวลาอัตโนมัติ</SubmitButton>
+            </ActionForm>
+          </details>
+
           <RoundPicker rounds={rounds} current={round} path="/admin/schedule" query={query} />
 
-          <Card bodyClassName="px-4 pb-5 sm:px-5" title={`นัดที่ ${round} · ${matches.length} คู่`}>
+          <Card bodyClassName="px-4 pb-5 sm:px-5" title={`นัดที่ ${round} · ${matches.length} คู่${unset ? ` · ยังไม่มีวัน ${unset} คู่` : ""}`}>
             <ActionForm action={saveScheduleAction} className="space-y-4" key={round}>
               <FillAll />
 
@@ -71,7 +122,6 @@ export default async function SchedulePage({ searchParams }: PageProps<"/admin/s
                             type="date"
                             name={`date_${m.id}`}
                             data-fill="date"
-                            required
                             defaultValue={toThaiDate(m.kickoffAt)}
                             aria-label="วันแข่ง"
                             className={inputClass}
@@ -80,7 +130,6 @@ export default async function SchedulePage({ searchParams }: PageProps<"/admin/s
                             type="time"
                             name={`time_${m.id}`}
                             data-fill="time"
-                            required
                             defaultValue={toThaiTime(m.kickoffAt)}
                             aria-label="เวลาเตะ"
                             className={inputClass}

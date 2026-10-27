@@ -15,10 +15,10 @@ export async function getTeamById(id: string) {
   return db.team.findUnique({ where: { id } });
 }
 
-/** ทีมทั้งหมดที่อยู่ในฤดูกาลนี้ */
+/** สโมสรที่อยู่ในฤดูกาลนี้ (ไม่รวมช่องที่ยังไม่ใส่สโมสร) */
 export async function listSeasonTeams(seasonId: string) {
   return db.team.findMany({
-    where: { seasons: { some: { seasonId } } },
+    where: { seasons: { some: { seasonId } }, isPlaceholder: false },
     orderBy: { name: "asc" },
     select: teamCardSelect,
   });
@@ -30,12 +30,13 @@ export async function countSeasonTeams(seasonId: string) {
 
 /** ทีมทั้งหมดในระบบ (ไม่จำกัดฤดูกาล) — ใช้ในหลังบ้าน */
 export async function listAllTeams() {
-  return db.team.findMany({ orderBy: { name: "asc" } });
+  return db.team.findMany({ where: { isPlaceholder: false }, orderBy: { name: "asc" } });
 }
 
 /** ทีมพร้อมจำนวนนักเตะ สำหรับหน้าจัดการสโมสร */
 export async function listTeamsWithPlayerCount() {
   return db.team.findMany({
+    where: { isPlaceholder: false },
     orderBy: { name: "asc" },
     include: { _count: { select: { players: true } } },
   });
@@ -48,6 +49,15 @@ export async function teamIdsWithResults(): Promise<Set<string>> {
     db.match.groupBy({ by: ["awayTeamId"], where: { status: "FINISHED" }, _count: true }),
   ]);
   return new Set([...home.map((h) => h.homeTeamId), ...away.map((a) => a.awayTeamId)]);
+}
+
+/** ทีมในฤดูกาลเรียงตามช่องในตารางแข่ง (รวมช่องที่ยังเป็น "ทีม 3") */
+export async function listSeasonSlots(seasonId: string) {
+  return db.seasonTeam.findMany({
+    where: { seasonId },
+    orderBy: [{ slot: "asc" }, { id: "asc" }],
+    include: { team: true },
+  });
 }
 
 /** รหัสทีมที่อยู่ในฤดูกาลนี้ */

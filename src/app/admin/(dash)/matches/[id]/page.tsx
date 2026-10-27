@@ -112,7 +112,7 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
               <form action={startLiveAction}>
                 <input type="hidden" name="matchId" value={match.id} />
                 <StartLiveButton
-                  kickoffAt={match.kickoffAt.toISOString()}
+                  kickoffAt={match.kickoffAt?.toISOString() ?? null}
                   label={`${match.homeTeam.shortName} พบ ${match.awayTeam.shortName} (นัดที่ ${match.round})`}
                 />
               </form>

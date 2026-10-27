@@ -5,10 +5,11 @@ import { useFormStatus } from "react-dom";
 const WARN_AFTER_MS = 60 * 60 * 1000; // ห่างจากเวลาที่แจ้งไว้เกิน 1 ชม. → ถามยืนยัน กันกดผิดนัด
 
 /** ปุ่มเริ่มถ่ายทอดสด — ถ้ากดห่างจากเวลาเตะที่แจ้งไว้มาก จะถามยืนยันก่อน */
-export function StartLiveButton({ kickoffAt, label }: { kickoffAt: string; label: string }) {
+export function StartLiveButton({ kickoffAt, label }: { kickoffAt: string | null; label: string }) {
   const { pending } = useFormStatus();
 
   function confirmIfFar(e: React.MouseEvent<HTMLButtonElement>) {
+    if (!kickoffAt) return; // ยังไม่ได้ตั้งวันเวลา — ไม่มีเวลาให้เทียบ
     const scheduled = new Date(kickoffAt);
     const diff = Date.now() - scheduled.getTime();
     if (Math.abs(diff) <= WARN_AFTER_MS) return;

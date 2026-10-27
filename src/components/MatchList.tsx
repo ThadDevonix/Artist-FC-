@@ -8,7 +8,7 @@ import type { LivePhase } from "@/generated/prisma/enums";
 export type MatchListItem = {
   id: string;
   round: number;
-  kickoffAt: Date;
+  kickoffAt: Date | null;
   venue: string | null;
   status: string;
   homeGoals: number | null;

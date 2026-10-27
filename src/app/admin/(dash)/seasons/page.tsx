@@ -2,8 +2,10 @@ import Link from "next/link";
 import { Card, TeamBadge } from "@/components/ui";
 import { ActionForm, Field, SubmitButton, inputClass } from "@/components/admin/Form";
 import { TypeToConfirm } from "@/components/admin/TypeToConfirm";
+import { FixtureFormat } from "@/components/admin/FixtureFormat";
 import {
   activateSeasonAction,
+  assignSlotAction,
   deleteSeasonAction,
   generateFixturesAction,
   saveSeasonAction,
@@ -16,27 +18,15 @@ import {
   getSeasonMatchCounts,
   listAllTeams,
   listSeasons,
+  listSeasonSlots,
   listSeasonZones,
-  seasonTeamIds,
 } from "@/server/queries";
-import { fixtureSummary } from "@/lib/fixtures";
-import { toThaiDate } from "@/lib/format";
+import { MAX_TEAMS } from "@/server/validation";
 import { parseTiebreakers, TIEBREAKER_LABELS, type Tiebreaker } from "@/lib/standings";
 
 export const metadata = { title: "ฤดูกาล" };
 
 const ALL_TIEBREAKERS = Object.keys(TIEBREAKER_LABELS) as Tiebreaker[];
-
-/** วันในสัปดาห์ เรียงแบบไทย (จันทร์ก่อน) — value ตาม Date.getDay(): 0 = อาทิตย์ */
-const WEEKDAYS = [
-  { value: 1, label: "จ" },
-  { value: 2, label: "อ" },
-  { value: 3, label: "พ" },
-  { value: 4, label: "พฤ" },
-  { value: 5, label: "ศ" },
-  { value: 6, label: "ส" },
-  { value: 0, label: "อา" },
-];
 
 export default async function SeasonsPage({ searchParams }: PageProps<"/admin/seasons">) {
   await requireRole("ADMIN");
@@ -56,16 +46,18 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
     );
   }
 
-  const [allTeams, inSeason, zones, counts] = await Promise.all([
+  const [allTeams, slots, zones, counts] = await Promise.all([
     listAllTeams(),
-    seasonTeamIds(season.id),
+    listSeasonSlots(season.id),
     listSeasonZones(season.id),
     getSeasonMatchCounts(season.id),
   ]);
   const { total: matchCount, locked: lockedCount } = counts;
 
   const current = parseTiebreakers(season.tiebreakers);
-  const preview = fixtureSummary(inSeason.size, season.rounds as 1 | 2);
+  const inSeason = new Set(slots.map((s) => s.teamId));
+  const otherClubs = allTeams.filter((t) => !inSeason.has(t.id));
+  const emptySlots = slots.filter((s) => s.team.isPlaceholder).length;
 
   return (
     <div className="space-y-6">
@@ -185,33 +177,72 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
         </Card>
 
         <div className="space-y-6">
-          <Card title={`ทีมในฤดูกาล (${inSeason.size})`} bodyClassName="px-4 pb-5 sm:px-5">
-            {allTeams.length === 0 ? (
+          <Card
+            title={`ทีมในฤดูกาล (${slots.length})`}
+            action={emptySlots > 0 ? <span className="text-xs text-muted">ยังว่าง {emptySlots} ช่อง</span> : undefined}
+            bodyClassName="px-4 pb-5 sm:px-5"
+          >
+            {slots.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted">
-                ยังไม่มีสโมสร — <Link href="/admin/teams" className="underline">เพิ่มสโมสรก่อน</Link>
+                ยังไม่มีทีม — ใส่จำนวนทีมที่ &quot;สร้างตารางการแข่งขัน&quot; หรือเพิ่มสโมสรด้านล่าง
               </p>
             ) : (
               <ul className="space-y-1.5">
-                {allTeams.map((t) => (
-                  <li key={t.id}>
-                    <form action={toggleSeasonTeamAction} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-canvas">
-                      <input type="hidden" name="seasonId" value={season.id} />
-                      <input type="hidden" name="teamId" value={t.id} />
-                      <TeamBadge name={t.name} code={t.code} logoUrl={t.logoUrl} color={t.color} color2={t.color2} size={24} />
-                      <span className="min-w-0 flex-1 truncate text-sm">{t.name}</span>
-                      <button
-                        className={`rounded-lg border px-3 py-1 text-xs font-medium transition ${
-                          inSeason.has(t.id)
-                            ? "border-line bg-canvas text-muted hover:border-loss hover:text-loss"
-                            : "border-brand bg-brand text-white"
-                        }`}
-                      >
-                        {inSeason.has(t.id) ? "เอาออก" : "เพิ่ม"}
-                      </button>
-                    </form>
+                {slots.map((s) => (
+                  <li key={s.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-canvas">
+                    <span className="w-6 shrink-0 text-right text-xs text-muted tnum">{s.slot ?? "–"}</span>
+                    {s.team.isPlaceholder ? (
+                      <ActionForm action={assignSlotAction} className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                        <input type="hidden" name="seasonTeamId" value={s.id} />
+                        <span className="w-14 shrink-0 text-sm text-muted">{s.team.name}</span>
+                        <select name="teamId" required defaultValue="" aria-label={`สโมสรของ${s.team.name}`} className={`${inputClass} min-w-0 flex-1 py-1.5`}>
+                          <option value="" disabled>เลือกสโมสร…</option>
+                          {otherClubs.map((t) => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
+                        <SubmitButton variant="ghost" className="py-1.5">ใส่</SubmitButton>
+                      </ActionForm>
+                    ) : (
+                      <form action={toggleSeasonTeamAction} className="flex min-w-0 flex-1 items-center gap-3">
+                        <input type="hidden" name="seasonId" value={season.id} />
+                        <input type="hidden" name="teamId" value={s.teamId} />
+                        <TeamBadge name={s.team.name} code={s.team.code} logoUrl={s.team.logoUrl} color={s.team.color} color2={s.team.color2} size={24} />
+                        <span className="min-w-0 flex-1 truncate text-sm">{s.team.name}</span>
+                        <button className="rounded-lg border border-line bg-canvas px-3 py-1 text-xs font-medium text-muted transition hover:border-loss hover:text-loss">
+                          เอาออก
+                        </button>
+                      </form>
+                    )}
                   </li>
                 ))}
               </ul>
+            )}
+
+            {otherClubs.length > 0 && (
+              <details className="mt-4 border-t border-line pt-4" open={slots.length === 0}>
+                <summary className="cursor-pointer text-sm font-medium">
+                  สโมสรอื่น ({otherClubs.length}){emptySlots > 0 && <span className="font-normal text-muted"> · กดเพิ่มแล้วใส่ลงช่องว่างแรก</span>}
+                </summary>
+                <ul className="mt-2 space-y-1.5">
+                  {otherClubs.map((t) => (
+                    <li key={t.id}>
+                      <form action={toggleSeasonTeamAction} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-canvas">
+                        <input type="hidden" name="seasonId" value={season.id} />
+                        <input type="hidden" name="teamId" value={t.id} />
+                        <TeamBadge name={t.name} code={t.code} logoUrl={t.logoUrl} color={t.color} color2={t.color2} size={24} />
+                        <span className="min-w-0 flex-1 truncate text-sm">{t.name}</span>
+                        <button className="rounded-lg border border-brand bg-brand px-3 py-1 text-xs font-medium text-white transition">เพิ่ม</button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+            {allTeams.length === 0 && (
+              <p className="mt-4 border-t border-line pt-4 text-sm text-muted">
+                ยังไม่มีสโมสรในระบบ — <Link href="/admin/teams" className="underline">เพิ่มสโมสร</Link>
+              </p>
             )}
           </Card>
 
@@ -226,46 +257,7 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
               <ActionForm action={generateFixturesAction} className="space-y-3">
                 <input type="hidden" name="seasonId" value={season.id} />
 
-                <p className="rounded-lg bg-canvas px-3 py-2.5 text-sm">
-                  {inSeason.size} ทีม → <strong>{preview.totalMatches} นัด</strong> แบ่งเป็น{" "}
-                  <strong>{preview.totalRounds} นัดการแข่งขัน</strong> (ทีมละ {preview.matchesPerTeam} นัด)
-                  {preview.hasBye && <span className="block text-xs text-muted">จำนวนทีมเป็นเลขคี่ — แต่ละนัดจะมี 1 ทีมได้พัก</span>}
-                </p>
-
-                <Field label="วันเริ่มฤดูกาล" hint="นัดที่ 1 อยู่ใน 7 วันนับจากวันนี้ นัดถัดไปเลื่อนไปทีละสัปดาห์">
-                  <input type="date" name="startDate" defaultValue={season.startDate ? toThaiDate(season.startDate) : ""} className={inputClass} />
-                </Field>
-
-                <fieldset>
-                  <legend className="mb-1 text-sm font-medium">วันที่แข่ง</legend>
-                  <div className="flex flex-wrap gap-1.5">
-                    {WEEKDAYS.map((d) => (
-                      <label key={d.value} className="cursor-pointer">
-                        <input type="checkbox" name="weekdays" value={d.value} className="peer sr-only" />
-                        <span className="inline-flex size-10 items-center justify-center rounded-full border border-line text-sm font-medium text-muted transition peer-checked:border-brand peer-checked:bg-brand peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-brand">
-                          {d.label}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  <span className="mt-1 block text-xs text-muted">คู่ในแต่ละนัดจะกระจายลงวันที่เลือกในสัปดาห์นั้น (แบบพรีเมียร์ลีก)</span>
-                </fieldset>
-
-                <Field label="เวลาเตะ" hint="ใส่ได้หลายเวลา คั่นด้วยลูกน้ำ — คู่ในวันเดียวกันไล่ใช้ตามลำดับ (สนามเดียว ให้ใส่เวลาพอกับจำนวนคู่ต่อวัน)">
-                  <input name="kickoffTimes" defaultValue="19:00, 20:30" className={inputClass} placeholder="19:00, 20:30" />
-                </Field>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="แต่ละนัดห่างกัน (สัปดาห์)">
-                    <input type="number" name="weeksBetween" min={1} max={8} defaultValue={1} className={inputClass} />
-                  </Field>
-                  <Field label="รูปแบบ">
-                    <select name="rounds" defaultValue={season.rounds} className={inputClass}>
-                      <option value={1}>เจอกันทีมละครั้ง</option>
-                      <option value={2}>เหย้า–เยือน</option>
-                    </select>
-                  </Field>
-                </div>
+                <FixtureFormat defaultTeams={slots.length || undefined} defaultRounds={season.rounds} max={MAX_TEAMS} required />
 
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" name="shuffle" className="size-4" />
@@ -273,18 +265,19 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
                 </label>
 
                 <p className="text-xs text-muted">
-                  คู่ไหนต้องย้ายวัน/เวลา แก้ทีหลังได้ที่{" "}
-                  <Link href="/admin/schedule" className="text-brand hover:underline">จัดวันเวลาแข่ง</Link>
+                  ตารางที่ได้ยังไม่มีวันเวลา — ตั้งทีหลังที่{" "}
+                  <Link href={`/admin/schedule?season=${encodeURIComponent(season.slug)}`} className="text-brand hover:underline">จัดวันเวลาแข่ง</Link>
+                  {" "}· ทีมที่ยังไม่รู้จะแสดงเป็น &quot;ทีม 1, ทีม 2 …&quot; จนกว่าจะใส่สโมสร
                 </p>
 
                 <SubmitButton
                   confirm={
                     matchCount > 0
-                      ? `จะลบตารางเดิม ${matchCount} นัดที่ยังไม่มีผล แล้วสร้างใหม่ ${preview.totalMatches} นัด ยืนยันไหม?`
+                      ? `จะลบตารางเดิม ${matchCount} คู่ (รวมวันเวลาที่ตั้งไว้) แล้วจับคู่ใหม่ ยืนยันไหม?`
                       : undefined
                   }
                 >
-                  สร้างตารางแข่ง
+                  {matchCount > 0 ? "สร้างตารางใหม่" : "สร้างตารางแข่ง"}
                 </SubmitButton>
               </ActionForm>
             )}
@@ -357,16 +350,15 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
 
 function NewSeasonForm() {
   return (
-    <ActionForm action={saveSeasonAction} className="flex flex-wrap items-end gap-3">
+    <ActionForm action={saveSeasonAction} className="space-y-3">
       <Field label="ชื่อฤดูกาล">
         <input name="name" placeholder="เช่น 2027–28" required className={inputClass} />
       </Field>
-      <Field label="รูปแบบ">
-        <select name="rounds" defaultValue={1} className={inputClass}>
-          <option value={1}>เจอกันทีมละครั้ง</option>
-          <option value={2}>เหย้า–เยือน</option>
-        </select>
-      </Field>
+      <FixtureFormat max={MAX_TEAMS} required />
+      <p className="text-xs text-muted">
+        ระบบจะสร้างตารางแข่งให้ครบทุกนัดทันที โดยใช้ชื่อ &quot;ทีม 1, ทีม 2 …&quot; ไว้ก่อน
+        แล้วค่อยเลือกสโมสรใส่แต่ละช่อง และตั้งวันเวลาทีหลัง
+      </p>
       <SubmitButton>สร้างฤดูกาล</SubmitButton>
     </ActionForm>
   );

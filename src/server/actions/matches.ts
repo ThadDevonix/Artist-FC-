@@ -94,7 +94,7 @@ export async function startLiveAction(formData: FormData) {
   });
   await syncLiveScore(access.match.id);
   await audit(session.userId, "MATCH_LIVE_START", "Match", access.match.id, {
-    scheduledKickoff: access.match.kickoffAt.toISOString(),
+    scheduledKickoff: access.match.kickoffAt?.toISOString() ?? null,
     actualKickoff: now.toISOString(),
   });
   refreshAll();
@@ -209,7 +209,7 @@ export async function updateMatchAction(_prev: ActionState, formData: FormData):
 
 /**
  * จัดวันเวลา/สนามของหลายนัดพร้อมกัน (หน้า "จัดวันเวลาแข่ง")
- * แต่ละคู่ในนัดเดียวกันแข่งคนละวันได้ — ฟอร์มส่งมาเป็น date_<id>, time_<id>, venue_<id>
+ * แต่ละคู่ในนัดเดียวกันแข่งคนละวันได้ — ฟอร์มส่งมาเป็น date_<id>, time_<id>, venue_<id> (วันเวลาเว้นว่างได้)
  * ไม่แตะนัดที่กำลังถ่ายทอดสด (เวลาเตะของนัดนั้นถูกบันทึกตอนกดเริ่มแล้ว)
  */
 export async function saveScheduleAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -224,13 +224,15 @@ export async function saveScheduleAction(_prev: ActionState, formData: FormData)
     const date = String(formData.get(`date_${m.id}`) ?? "").trim();
     const time = String(formData.get(`time_${m.id}`) ?? "").trim();
     const venue = String(formData.get(`venue_${m.id}`) ?? "").trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
-      return { error: "กรุณากรอกวันและเวลาให้ครบทุกคู่" };
+    // เว้นว่างทั้งวันและเวลา = ยังไม่กำหนด · กรอกแค่ช่องเดียวไม่ได้
+    const unset = !date && !time;
+    if (!unset && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time))) {
+      return { error: "กรอกทั้งวันและเวลา หรือเว้นว่างทั้งคู่ถ้ายังไม่กำหนด" };
     }
     updates.push(
       db.match.update({
         where: { id: m.id },
-        data: { kickoffAt: fromThaiDateTime(date, time), venue: venue || null },
+        data: { kickoffAt: unset ? null : fromThaiDateTime(date, time), venue: venue || null },
       }),
     );
   }

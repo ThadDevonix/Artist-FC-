@@ -108,6 +108,9 @@ model Team {
   venue     String?
   city      String?
   founded   Int?
+  // ช่องทีมชั่วคราว ("ทีม 1", "ทีม 2" …) ที่สร้างตอนตั้งฤดูกาลด้วยจำนวนทีม — แทนด้วยสโมสรจริงทีหลัง
+  // ไม่แสดงในรายชื่อสโมสร และถูกลบทิ้งเมื่อใส่สโมสรจริงแทนแล้ว
+  isPlaceholder Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -123,6 +126,7 @@ model SeasonTeam {
   id       String @id @default(cuid())
   seasonId String
   teamId   String
+  slot     Int? // ช่องที่เท่าไหร่ในตารางแข่ง (1 … จำนวนทีม) — ลำดับที่ใช้จับคู่
 
   season Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
@@ -207,7 +211,7 @@ model Match {
   round      Int // นัดที่ (matchweek)
   homeTeamId String
   awayTeamId String
-  kickoffAt  DateTime
+  kickoffAt  DateTime? // ว่าง = ยังไม่กำหนดวันเวลา (ตารางสร้างไว้ก่อน ค่อยตั้งวันทีหลัง)
   venue      String?
   status     MatchStatus @default(SCHEDULED)
   homeGoals  Int?

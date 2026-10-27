@@ -83,7 +83,7 @@ async function main() {
     let phase = await db.match.findUniqueOrThrow({ where: { id: match.id }, select: { livePhase: true, phaseStartedAt: true } });
     check("นาฬิกาเริ่มครึ่งแรก", phase.livePhase === "FIRST_HALF" && phase.phaseStartedAt !== null);
     const started = await db.match.findUniqueOrThrow({ where: { id: match.id }, select: { kickoffAt: true } });
-    check("เวลาเตะเปลี่ยนเป็นเวลาที่กดจริง (นัดเลท)", Math.abs(started.kickoffAt.getTime() - Date.now()) < 60_000);
+    check("เวลาเตะเปลี่ยนเป็นเวลาที่กดจริง (นัดเลท)", Math.abs(started.kickoffAt!.getTime() - Date.now()) < 60_000);
     const startLog = await db.auditLog.findFirst({ where: { entityId: match.id, action: "MATCH_LIVE_START" } });
     check("ประวัติเก็บเวลาที่แจ้งไว้เดิม", (startLog?.detail ?? "").includes(new Date(stamp - 30 * 60_000).toISOString()));
     const clockHtml = await (await fetch(`${BASE}/matches/${match.id}`)).text();

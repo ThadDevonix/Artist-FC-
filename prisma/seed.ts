@@ -242,8 +242,8 @@ async function main() {
         awayGoals,
         status: isPending ? "PENDING" : "FINISHED",
         submittedById: refereeOfficials.find((o) => o.id === match.refereeId)?.userId ?? null,
-        submittedAt: new Date(match.kickoffAt.getTime() + 2 * 60 * 60 * 1000),
-        ...(isPending ? {} : { approvedById: admin.id, approvedAt: new Date(match.kickoffAt.getTime() + 3 * 60 * 60 * 1000) }),
+        submittedAt: new Date(match.kickoffAt!.getTime() + 2 * 60 * 60 * 1000),
+        ...(isPending ? {} : { approvedById: admin.id, approvedAt: new Date(match.kickoffAt!.getTime() + 3 * 60 * 60 * 1000) }),
         events: { create: events.sort((a, b) => a.minute - b.minute) },
       },
     });

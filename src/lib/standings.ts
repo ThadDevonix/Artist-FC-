@@ -41,7 +41,7 @@ export type StandingMatch = {
   awayTeamId: string;
   homeGoals: number;
   awayGoals: number;
-  kickoffAt: Date;
+  kickoffAt: Date | null; // ว่าง = ไม่ได้ตั้งวันไว้ → ใช้ลำดับนัดแทน
   round: number;
 };
 
@@ -111,7 +111,8 @@ export function computeStandings(
 
   // เรียงตามเวลาแข่ง เพื่อให้ฟอร์ม 5 นัดล่าสุดถูกลำดับ
   const ordered = [...matches].sort(
-    (a, b) => a.kickoffAt.getTime() - b.kickoffAt.getTime() || a.round - b.round,
+    (a, b) =>
+      (a.kickoffAt && b.kickoffAt ? a.kickoffAt.getTime() - b.kickoffAt.getTime() : 0) || a.round - b.round,
   );
 
   for (const m of ordered) {

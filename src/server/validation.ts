@@ -31,6 +31,9 @@ const optionalText = z
   .optional()
   .transform((v) => (v ?? "").trim() || null);
 
+/** จำนวนทีมสูงสุดต่อฤดูกาล */
+export const MAX_TEAMS = 40;
+
 /** ตัวเลขที่เว้นว่างได้ */
 const optionalInt = z
   .string()
@@ -273,9 +276,23 @@ export const seasonSchema = z.object({
   halfMinutes: optionalInt.refine((v) => v === null || (v >= 10 && v <= 60), "ความยาวครึ่งต้องอยู่ระหว่าง 10–60 นาที"),
   startDate: optionalDate,
   endDate: optionalDate,
+  // จำนวนทีมในตารางแข่ง — มีเฉพาะฟอร์มสร้างฤดูกาล เว้นว่าง = ยังไม่สร้างตาราง
+  teamCount: optionalInt.refine((v) => v === null || (v >= 2 && v <= MAX_TEAMS), `จำนวนทีมต้องอยู่ระหว่าง 2–${MAX_TEAMS}`),
 });
 
+/** สร้างตารางใหม่จากหน้าฤดูกาล — ยังไม่กำหนดวันเวลา */
 export const fixtureSchema = z.object({
+  seasonId: required("ไม่พบฤดูกาล"),
+  teamCount: requiredInt(2, MAX_TEAMS, `จำนวนทีมต้องอยู่ระหว่าง 2–${MAX_TEAMS}`),
+  rounds: z
+    .string()
+    .optional()
+    .transform((v) => (v === "2" ? 2 : 1) as 1 | 2),
+  shuffle: checkbox,
+});
+
+/** ตั้งวันเวลาทุกนัดที่ยังไม่แข่งแบบอัตโนมัติ (หน้าจัดวันเวลาแข่ง) */
+export const autoScheduleSchema = z.object({
   seasonId: required("ไม่พบฤดูกาล"),
   startDate: optionalDate,
   // เวลาเตะหลายเวลา คั่นด้วยลูกน้ำ เช่น "19:00, 20:30" — คู่ในวันเดียวกันไล่ใช้ตามลำดับ
@@ -292,11 +309,12 @@ export const fixtureSchema = z.object({
     .refine((v) => v.length > 0, "กรุณาใส่เวลาเตะอย่างน้อย 1 เวลา")
     .refine((v) => v.every((t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t)), "รูปแบบเวลาไม่ถูกต้อง (เช่น 19:00, 20:30)"),
   weeksBetween: intWithDefault(1, 1, 8, "แต่ละนัดห่างกันได้ 1–8 สัปดาห์"),
-  rounds: z
-    .string()
-    .optional()
-    .transform((v) => (v === "2" ? 2 : 1) as 1 | 2),
-  shuffle: checkbox,
+});
+
+/** ใส่สโมสรจริงลงช่องทีม (แทน "ทีม 3") */
+export const assignSlotSchema = z.object({
+  seasonTeamId: required("ไม่พบช่องทีม"),
+  teamId: required("กรุณาเลือกสโมสร"),
 });
 
 export const zoneSchema = z.object({

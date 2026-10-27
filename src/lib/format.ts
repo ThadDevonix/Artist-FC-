@@ -1,7 +1,11 @@
 const TZ = "Asia/Bangkok";
 
+/** แสดงแทนวันที่ เมื่อนัดยังไม่ได้กำหนดวันเวลา (kickoffAt ว่าง) */
+export const TBD_DATE = "รอกำหนดวัน";
+
 /** 27 ต.ค. 2569 */
-export function thaiDate(date: Date | string) {
+export function thaiDate(date: Date | string | null) {
+  if (!date) return TBD_DATE;
   return new Intl.DateTimeFormat("th-TH", {
     timeZone: TZ,
     day: "numeric",
@@ -11,7 +15,8 @@ export function thaiDate(date: Date | string) {
 }
 
 /** จันทร์ 27 ต.ค. */
-export function thaiDayMonth(date: Date | string) {
+export function thaiDayMonth(date: Date | string | null) {
+  if (!date) return TBD_DATE;
   return new Intl.DateTimeFormat("th-TH", {
     timeZone: TZ,
     weekday: "short",
@@ -21,7 +26,8 @@ export function thaiDayMonth(date: Date | string) {
 }
 
 /** 19:30 */
-export function thaiTime(date: Date | string) {
+export function thaiTime(date: Date | string | null) {
+  if (!date) return "–";
   return new Intl.DateTimeFormat("th-TH", {
     timeZone: TZ,
     hour: "2-digit",
@@ -31,12 +37,14 @@ export function thaiTime(date: Date | string) {
 }
 
 /** 27 ต.ค. 2569 19:30 */
-export function thaiDateTime(date: Date | string) {
+export function thaiDateTime(date: Date | string | null) {
+  if (!date) return TBD_DATE;
   return `${thaiDate(date)} ${thaiTime(date)}`;
 }
 
 /** ค่าสำหรับ <input type="datetime-local"> ตามเวลาไทย */
-export function toDateTimeLocal(date: Date | string) {
+export function toDateTimeLocal(date: Date | string | null) {
+  if (!date) return "";
   const d = new Date(date);
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: TZ,
@@ -63,12 +71,12 @@ export function fromThaiDateTime(date: string, time = "00:00"): Date {
 }
 
 /** วันที่ (YYYY-MM-DD) ตามเวลาไทย — ใช้เติมค่าใน <input type="date"> */
-export function toThaiDate(date: Date | string) {
+export function toThaiDate(date: Date | string | null) {
   return toDateTimeLocal(date).slice(0, 10);
 }
 
 /** เวลา (HH:mm) ตามเวลาไทย — ใช้เติมค่าใน <input type="time"> */
-export function toThaiTime(date: Date | string) {
+export function toThaiTime(date: Date | string | null) {
   return toDateTimeLocal(date).slice(11, 16);
 }
 
