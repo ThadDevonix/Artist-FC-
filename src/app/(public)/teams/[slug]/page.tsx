@@ -81,12 +81,12 @@ export default async function TeamPage({ params, searchParams }: PageProps<"/tea
           {row && (
             <div className="flex flex-wrap items-start gap-5">
               <div>
-                <div className="text-xs text-muted">อันดับ</div>
-                <div className="flex h-8 items-center text-2xl font-bold tnum">{row.position}</div>
+                <div className="text-center text-xs text-muted">อันดับ</div>
+                <div className="flex h-8 items-center justify-center text-2xl font-bold tnum">{row.position}</div>
               </div>
               <div>
-                <div className="text-xs text-muted">แต้ม</div>
-                <div className="flex h-8 items-center text-2xl font-bold tnum">{row.points}</div>
+                <div className="text-center text-xs text-muted">แต้ม</div>
+                <div className="flex h-8 items-center justify-center text-2xl font-bold tnum">{row.points}</div>
               </div>
               <div>
                 <div className="text-center text-xs text-muted">ฟอร์ม</div>
