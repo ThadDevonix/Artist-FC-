@@ -84,7 +84,7 @@ export default async function StatsPage({ searchParams }: PageProps<"/stats">) {
               <tr key={r.team.id} className="border-b border-line last:border-0 hover:bg-canvas">
                 <td className="min-w-0 py-2.5 pl-3 sm:pl-4">
                   <Link href={`/teams/${r.team.slug}`} className="flex items-center gap-2 font-medium hover:text-brand">
-                    <TeamBadge name={r.team.name} logoUrl={r.team.logoUrl} color={r.team.color} size={22} />
+                    <TeamBadge name={r.team.name} logoUrl={r.team.logoUrl} color={r.team.color} color2={r.team.color2} size={22} />
                     <span className="truncate">{r.team.shortName}</span>
                   </Link>
                 </td>
@@ -112,7 +112,7 @@ function TeamStatCard({
   rows,
 }: {
   title: string;
-  rows: { team: { name: string; shortName: string; slug: string; logoUrl: string | null; color: string }; value: number }[];
+  rows: { team: { name: string; shortName: string; slug: string; logoUrl: string | null; color: string; color2: string | null }; value: number }[];
 }) {
   return (
     <Card title={title}>
@@ -124,7 +124,7 @@ function TeamStatCard({
             <li key={r.team.slug} className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0 sm:px-5">
               <span className="w-4 shrink-0 text-sm text-muted tnum">{i + 1}</span>
               <Link href={`/teams/${r.team.slug}`} className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium hover:underline">
-                <TeamBadge name={r.team.name} logoUrl={r.team.logoUrl} color={r.team.color} size={20} />
+                <TeamBadge name={r.team.name} logoUrl={r.team.logoUrl} color={r.team.color} color2={r.team.color2} size={20} />
                 <span className="truncate">{r.team.shortName}</span>
               </Link>
               <span className="shrink-0 text-sm font-bold tnum">{r.value}</span>

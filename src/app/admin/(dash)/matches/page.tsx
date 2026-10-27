@@ -101,7 +101,7 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
                   <div className="mt-2 flex items-center gap-2">
                     <span className="flex min-w-0 flex-1 items-center justify-end gap-2 text-right text-sm font-medium">
                       <span className="truncate">{m.homeTeam.shortName}</span>
-                      <TeamBadge name={m.homeTeam.name} logoUrl={m.homeTeam.logoUrl} color={m.homeTeam.color} size={22} />
+                      <TeamBadge name={m.homeTeam.name} logoUrl={m.homeTeam.logoUrl} color={m.homeTeam.color} color2={m.homeTeam.color2} size={22} />
                     </span>
                     <span className="w-14 shrink-0 text-center">
                       {m.homeGoals !== null ? (
@@ -113,7 +113,7 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
                       )}
                     </span>
                     <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium">
-                      <TeamBadge name={m.awayTeam.name} logoUrl={m.awayTeam.logoUrl} color={m.awayTeam.color} size={22} />
+                      <TeamBadge name={m.awayTeam.name} logoUrl={m.awayTeam.logoUrl} color={m.awayTeam.color} color2={m.awayTeam.color2} size={22} />
                       <span className="truncate">{m.awayTeam.shortName}</span>
                     </span>
                   </div>
@@ -149,10 +149,10 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
                     <td className="py-2.5 pl-4 tnum text-muted">{m.round}</td>
                     <td className="py-2.5">
                       <span className="flex items-center gap-2">
-                        <TeamBadge name={m.homeTeam.name} logoUrl={m.homeTeam.logoUrl} color={m.homeTeam.color} size={20} />
+                        <TeamBadge name={m.homeTeam.name} logoUrl={m.homeTeam.logoUrl} color={m.homeTeam.color} color2={m.homeTeam.color2} size={20} />
                         <span className="truncate">{m.homeTeam.shortName}</span>
                         <span className="text-muted">พบ</span>
-                        <TeamBadge name={m.awayTeam.name} logoUrl={m.awayTeam.logoUrl} color={m.awayTeam.color} size={20} />
+                        <TeamBadge name={m.awayTeam.name} logoUrl={m.awayTeam.logoUrl} color={m.awayTeam.color} color2={m.awayTeam.color2} size={20} />
                         <span className="truncate">{m.awayTeam.shortName}</span>
                       </span>
                     </td>

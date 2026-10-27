@@ -89,7 +89,7 @@ export default async function OverviewPage() {
                   href={`/teams/${t.slug}`}
                   className="flex h-full flex-col items-center gap-2 rounded-xl border border-line p-3 text-center transition hover:bg-canvas"
                 >
-                  <TeamBadge name={t.name} code={t.code} logoUrl={t.logoUrl} color={t.color} size={44} />
+                  <TeamBadge name={t.name} code={t.code} logoUrl={t.logoUrl} color={t.color} color2={t.color2} size={44} />
                   <span className="text-xs font-medium leading-snug">{t.name}</span>
                 </Link>
               </li>

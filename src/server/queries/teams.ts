@@ -4,7 +4,7 @@ import { db } from "@/server/db";
 /** ฟิลด์ทีมชุดมาตรฐานที่ใช้แสดงผลทั่วเว็บ */
 export const teamCardSelect = {
   id: true, name: true, shortName: true, slug: true,
-  logoUrl: true, color: true, code: true,
+  logoUrl: true, color: true, color2: true, code: true,
 } as const;
 
 export async function getTeamBySlug(slug: string) {

@@ -81,11 +81,11 @@ export default async function AdminHome({ searchParams }: PageProps<"/admin">) {
                   <Link href={`/admin/matches/${m.id}`} className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-0 hover:bg-canvas sm:px-5">
                     <span className="w-14 shrink-0 text-xs text-muted">นัดที่ {m.round}</span>
                     <span className="flex min-w-0 flex-1 items-center gap-2 text-sm">
-                      <TeamBadge name={m.homeTeam.name} logoUrl={m.homeTeam.logoUrl} color={m.homeTeam.color} size={20} />
+                      <TeamBadge name={m.homeTeam.name} logoUrl={m.homeTeam.logoUrl} color={m.homeTeam.color} color2={m.homeTeam.color2} size={20} />
                       <span className="truncate">{m.homeTeam.shortName}</span>
                       <span className="shrink-0 font-bold tnum">{m.homeGoals}–{m.awayGoals}</span>
                       <span className="truncate">{m.awayTeam.shortName}</span>
-                      <TeamBadge name={m.awayTeam.name} logoUrl={m.awayTeam.logoUrl} color={m.awayTeam.color} size={20} />
+                      <TeamBadge name={m.awayTeam.name} logoUrl={m.awayTeam.logoUrl} color={m.awayTeam.color} color2={m.awayTeam.color2} size={20} />
                     </span>
                     <span className="hidden shrink-0 text-xs text-muted sm:block">
                       ส่งโดย {m.submittedBy?.name ?? "—"}

@@ -80,6 +80,7 @@ model Team {
   slug      String   @unique
   logoUrl   String?
   color     String   @default("#1f2937")
+  color2    String? // สีที่ 2 (ไม่บังคับ) — วงกลมจะผ่าครึ่งแนวนอน บนสีหลัก ล่างสีรอง
   venue     String?
   city      String?
   founded   Int?

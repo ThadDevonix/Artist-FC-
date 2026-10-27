@@ -21,6 +21,7 @@ export async function saveTeamAction(
     shortName: shortName ?? name,
     code: (code ?? name.slice(0, 3)).toUpperCase(),
     color: rest.color ?? "#1f2937",
+    color2: rest.useColor2 ? (rest.color2 ?? null) : null,
     logoUrl: rest.logoUrl,
     venue: rest.venue,
     city: rest.city,

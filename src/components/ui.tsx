@@ -4,18 +4,26 @@ import type { FormResult } from "@/lib/standings";
 import { MATCH_STATUS_LABEL, MATCH_STATUS_STYLE } from "@/lib/labels";
 import type { MatchStatus } from "@/generated/prisma/enums";
 
+/** พื้นวงกลมสีทีม — มีสีที่ 2 จะผ่าครึ่งแนวนอน บนสีหลัก ล่างสีรอง */
+export function teamBackground(color?: string | null, color2?: string | null) {
+  const main = color ?? "#374151";
+  return color2 ? `linear-gradient(180deg, ${main} 50%, ${color2} 50%)` : main;
+}
+
 /** โลโก้ทีม — ถ้าไม่มีรูปจะวาดวงกลมสีประจำทีมพร้อมตัวย่อแทน */
 export function TeamBadge({
   name,
   code,
   logoUrl,
   color,
+  color2,
   size = 24,
 }: {
   name: string;
   code?: string;
   logoUrl?: string | null;
   color?: string;
+  color2?: string | null;
   size?: number;
 }) {
   if (logoUrl) {
@@ -39,8 +47,10 @@ export function TeamBadge({
       style={{
         width: size,
         height: size,
-        background: color ?? "#374151",
+        background: teamBackground(color, color2),
         fontSize: Math.max(8, size * 0.38),
+        // เงาตัวอักษรช่วยให้อ่านออกเมื่อครึ่งล่างเป็นสีอ่อน
+        textShadow: color2 ? "0 1px 2px rgb(0 0 0 / 0.55)" : undefined,
       }}
     >
       {(code ?? name).slice(0, 3)}

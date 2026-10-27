@@ -104,7 +104,7 @@ export default async function PlayersAdminPage({ searchParams }: PageProps<"/adm
                   teamFilter === t.id ? "border-ink bg-surface font-medium" : "border-line bg-surface text-muted"
                 }`}
               >
-                <TeamBadge name={t.name} logoUrl={t.logoUrl} color={t.color} size={16} />
+                <TeamBadge name={t.name} logoUrl={t.logoUrl} color={t.color} color2={t.color2} size={16} />
                 {t.shortName}
               </Link>
             ))}
@@ -137,7 +137,7 @@ export default async function PlayersAdminPage({ searchParams }: PageProps<"/adm
                       <td className="hidden py-2 sm:table-cell">
                         {p.team ? (
                           <span className="flex items-center gap-2 text-muted">
-                            <TeamBadge name={p.team.name} logoUrl={p.team.logoUrl} color={p.team.color} size={18} />
+                            <TeamBadge name={p.team.name} logoUrl={p.team.logoUrl} color={p.team.color} color2={p.team.color2} size={18} />
                             {p.team.shortName}
                           </span>
                         ) : (

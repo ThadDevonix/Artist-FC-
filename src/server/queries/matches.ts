@@ -12,8 +12,8 @@ export const matchListSelect = {
   status: true,
   homeGoals: true,
   awayGoals: true,
-  homeTeam: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true } },
-  awayTeam: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true } },
+  homeTeam: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true, color2: true } },
+  awayTeam: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true, color2: true } },
 } as const;
 
 export async function getMatchesByRound(seasonId: string, round?: number) {
@@ -116,8 +116,8 @@ export async function listMatchesForAdmin(
     },
     orderBy: [{ round: "asc" }, { kickoffAt: "asc" }],
     include: {
-      homeTeam: { select: { name: true, shortName: true, logoUrl: true, color: true } },
-      awayTeam: { select: { name: true, shortName: true, logoUrl: true, color: true } },
+      homeTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true } },
+      awayTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true } },
       referee: { select: { name: true } },
     },
   });
@@ -149,8 +149,8 @@ export async function listPendingMatches(seasonId: string, take = 8) {
     orderBy: { submittedAt: "desc" },
     take,
     include: {
-      homeTeam: { select: { name: true, shortName: true, logoUrl: true, color: true } },
-      awayTeam: { select: { name: true, shortName: true, logoUrl: true, color: true } },
+      homeTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true } },
+      awayTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true } },
       submittedBy: { select: { name: true } },
     },
   });
@@ -170,8 +170,8 @@ export async function listUpcomingMatches(
     orderBy: { kickoffAt: "asc" },
     take: options.take ?? 8,
     include: {
-      homeTeam: { select: { name: true, shortName: true, logoUrl: true, color: true } },
-      awayTeam: { select: { name: true, shortName: true, logoUrl: true, color: true } },
+      homeTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true } },
+      awayTeam: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true } },
     },
   });
 }

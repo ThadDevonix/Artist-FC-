@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Card, POSITION_LABEL, TeamBadge } from "@/components/ui";
+import { Card, POSITION_LABEL, TeamBadge, teamBackground } from "@/components/ui";
 import { EventIcon, eventLabel } from "@/components/events";
 import { getActiveSeason, getPlayerBySlug, listPlayerEvents } from "@/server/queries";
 import { ageFrom, decodeParam, minuteLabel, thaiDate } from "@/lib/format";
@@ -27,7 +27,7 @@ export default async function PlayerPage({ params }: PageProps<"/players/[slug]"
         <div className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-center">
           <span
             className="flex size-16 shrink-0 items-center justify-center rounded-full text-xl font-bold text-white sm:size-20 sm:text-2xl"
-            style={{ background: player.team?.color ?? "#374151" }}
+            style={{ background: teamBackground(player.team?.color, player.team?.color2) }}
           >
             {player.number ?? player.name.slice(0, 1)}
           </span>
@@ -36,7 +36,7 @@ export default async function PlayerPage({ params }: PageProps<"/players/[slug]"
             <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
               {player.team && (
                 <Link href={`/teams/${player.team.slug}`} className="flex items-center gap-1.5 hover:text-ink">
-                  <TeamBadge name={player.team.name} logoUrl={player.team.logoUrl} color={player.team.color} size={18} />
+                  <TeamBadge name={player.team.name} logoUrl={player.team.logoUrl} color={player.team.color} color2={player.team.color2} size={18} />
                   {player.team.name}
                 </Link>
               )}

@@ -10,7 +10,7 @@ async function main() {
   const season = (await db.season.findFirst({ where: { isActive: true } }))!;
   const teams = (await db.seasonTeam.findMany({
     where: { seasonId: season.id },
-    select: { team: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true } } },
+    select: { team: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true, color2: true } } },
   })).map((s: { team: StandingTeam }) => s.team);
   const ms = await db.match.findMany({ where: { seasonId: season.id, status: "FINISHED" } });
 

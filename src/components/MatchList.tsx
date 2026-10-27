@@ -10,8 +10,8 @@ export type MatchListItem = {
   status: string;
   homeGoals: number | null;
   awayGoals: number | null;
-  homeTeam: { id: string; name: string; shortName: string; slug: string; logoUrl: string | null; color: string };
-  awayTeam: { id: string; name: string; shortName: string; slug: string; logoUrl: string | null; color: string };
+  homeTeam: { id: string; name: string; shortName: string; slug: string; logoUrl: string | null; color: string; color2: string | null };
+  awayTeam: { id: string; name: string; shortName: string; slug: string; logoUrl: string | null; color: string; color2: string | null };
 };
 
 export function MatchRow({ match, showRound = false }: { match: MatchListItem; showRound?: boolean }) {
@@ -32,7 +32,7 @@ export function MatchRow({ match, showRound = false }: { match: MatchListItem; s
       <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
         <span className={`flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right sm:gap-2 ${homeWin ? "font-semibold" : ""}`}>
           <span className="truncate text-sm">{match.homeTeam.shortName}</span>
-          <TeamBadge name={match.homeTeam.name} logoUrl={match.homeTeam.logoUrl} color={match.homeTeam.color} size={20} />
+          <TeamBadge name={match.homeTeam.name} logoUrl={match.homeTeam.logoUrl} color={match.homeTeam.color} color2={match.homeTeam.color2} size={20} />
         </span>
 
         <span className="w-12 shrink-0 text-center tnum sm:w-16">
@@ -46,7 +46,7 @@ export function MatchRow({ match, showRound = false }: { match: MatchListItem; s
         </span>
 
         <span className={`flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2 ${awayWin ? "font-semibold" : ""}`}>
-          <TeamBadge name={match.awayTeam.name} logoUrl={match.awayTeam.logoUrl} color={match.awayTeam.color} size={20} />
+          <TeamBadge name={match.awayTeam.name} logoUrl={match.awayTeam.logoUrl} color={match.awayTeam.color} color2={match.awayTeam.color2} size={20} />
           <span className="truncate text-sm">{match.awayTeam.shortName}</span>
         </span>
       </div>

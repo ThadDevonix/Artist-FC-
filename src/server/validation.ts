@@ -174,6 +174,8 @@ export const teamSchema = z.object({
   code: optionalText,
   logoUrl: optionalText,
   color: optionalText,
+  useColor2: optionalText,
+  color2: optionalText,
   venue: optionalText,
   city: optionalText,
   founded: optionalInt,

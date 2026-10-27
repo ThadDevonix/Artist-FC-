@@ -52,11 +52,11 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
       <Card bodyClassName="px-4 pb-5 sm:px-6">
         <div className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <TeamBadge name={match.homeTeam.name} code={match.homeTeam.code} logoUrl={match.homeTeam.logoUrl} color={match.homeTeam.color} size={40} />
+            <TeamBadge name={match.homeTeam.name} code={match.homeTeam.code} logoUrl={match.homeTeam.logoUrl} color={match.homeTeam.color} color2={match.homeTeam.color2} size={40} />
             <span className="text-lg font-semibold">{match.homeTeam.shortName}</span>
             <span className="text-muted">พบ</span>
             <span className="text-lg font-semibold">{match.awayTeam.shortName}</span>
-            <TeamBadge name={match.awayTeam.name} code={match.awayTeam.code} logoUrl={match.awayTeam.logoUrl} color={match.awayTeam.color} size={40} />
+            <TeamBadge name={match.awayTeam.name} code={match.awayTeam.code} logoUrl={match.awayTeam.logoUrl} color={match.awayTeam.color} color2={match.awayTeam.color2} size={40} />
           </div>
           <div className="flex items-center gap-3 text-sm text-muted">
             <span>นัดที่ {match.round} · {thaiDateTime(match.kickoffAt)}</span>

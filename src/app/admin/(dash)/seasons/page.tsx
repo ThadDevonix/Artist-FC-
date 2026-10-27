@@ -162,7 +162,7 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
                     <form action={toggleSeasonTeamAction} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-canvas">
                       <input type="hidden" name="seasonId" value={season.id} />
                       <input type="hidden" name="teamId" value={t.id} />
-                      <TeamBadge name={t.name} code={t.code} logoUrl={t.logoUrl} color={t.color} size={24} />
+                      <TeamBadge name={t.name} code={t.code} logoUrl={t.logoUrl} color={t.color} color2={t.color2} size={24} />
                       <span className="min-w-0 flex-1 truncate text-sm">{t.name}</span>
                       <button
                         className={`rounded-lg border px-3 py-1 text-xs font-medium transition ${

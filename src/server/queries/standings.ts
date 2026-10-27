@@ -20,7 +20,7 @@ export async function getStandings(seasonId: string): Promise<{
       where: { seasonId },
       select: {
         team: {
-          select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true },
+          select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true, color2: true },
         },
       },
     }),

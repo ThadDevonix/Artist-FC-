@@ -80,7 +80,7 @@ export function StandingsTable({
                     <TeamBadge
                       name={row.team.name}
                       logoUrl={row.team.logoUrl}
-                      color={row.team.color}
+                      color={row.team.color} color2={row.team.color2}
                       size={22}
                     />
                     <span className="truncate">{row.team.shortName}</span>

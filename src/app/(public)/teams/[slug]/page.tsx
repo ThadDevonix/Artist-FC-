@@ -43,7 +43,7 @@ export default async function TeamPage({ params }: PageProps<"/teams/[slug]">) {
       <Card bodyClassName="px-4 pb-5 sm:px-6">
         <div className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <TeamBadge name={team.name} code={team.code} logoUrl={team.logoUrl} color={team.color} size={56} />
+            <TeamBadge name={team.name} code={team.code} logoUrl={team.logoUrl} color={team.color} color2={team.color2} size={56} />
             <div>
               <h1 className="text-xl font-bold sm:text-2xl">{team.name}</h1>
               <p className="mt-1 text-sm text-muted">

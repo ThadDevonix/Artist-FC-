@@ -29,7 +29,7 @@ export async function listSeasonPlayers(
     select: {
       id: true, name: true, slug: true, number: true, position: true,
       nationality: true, photoUrl: true,
-      team: { select: { name: true, shortName: true, slug: true, logoUrl: true, color: true } },
+      team: { select: { name: true, shortName: true, slug: true, logoUrl: true, color: true, color2: true } },
     },
   });
 }
@@ -63,7 +63,7 @@ export async function listPlayersForAdmin(
       ...(filters.search ? { name: { contains: filters.search } } : {}),
     },
     orderBy: [{ team: { name: "asc" } }, { number: "asc" }],
-    include: { team: { select: { name: true, shortName: true, logoUrl: true, color: true } } },
+    include: { team: { select: { name: true, shortName: true, logoUrl: true, color: true, color2: true } } },
     take,
   });
 }

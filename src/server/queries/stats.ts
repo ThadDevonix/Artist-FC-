@@ -140,7 +140,7 @@ export async function getCleanSheets(seasonId: string) {
     }),
     db.team.findMany({
       where: { seasons: { some: { seasonId } } },
-      select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true },
+      select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true, color2: true },
     }),
   ]);
 

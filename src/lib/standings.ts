@@ -51,6 +51,7 @@ export type StandingTeam = {
   slug: string;
   logoUrl: string | null;
   color: string;
+  color2: string | null;
 };
 
 export type StandingRow = {

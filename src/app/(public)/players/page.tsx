@@ -66,7 +66,7 @@ export default async function PlayersPage({ searchParams }: PageProps<"/players"
         <FilterChip href={chip({ team: undefined })} active={!teamSlug}>ทุกทีม</FilterChip>
         {teams.map((t) => (
           <FilterChip key={t.id} href={chip({ team: t.slug })} active={teamSlug === t.slug}>
-            <TeamBadge name={t.name} logoUrl={t.logoUrl} color={t.color} size={16} />
+            <TeamBadge name={t.name} logoUrl={t.logoUrl} color={t.color} color2={t.color2} size={16} />
             {t.shortName}
           </FilterChip>
         ))}
@@ -107,7 +107,7 @@ export default async function PlayersPage({ searchParams }: PageProps<"/players"
                     <td className="hidden py-2.5 sm:table-cell">
                       {p.team && (
                         <Link href={`/teams/${p.team.slug}`} className="flex items-center gap-2 text-muted hover:text-brand">
-                          <TeamBadge name={p.team.name} logoUrl={p.team.logoUrl} color={p.team.color} size={20} />
+                          <TeamBadge name={p.team.name} logoUrl={p.team.logoUrl} color={p.team.color} color2={p.team.color2} size={20} />
                           <span className="truncate">{p.team.shortName}</span>
                         </Link>
                       )}

@@ -108,7 +108,7 @@ function TeamSide({
   team,
   align,
 }: {
-  team: { name: string; shortName: string; slug: string; logoUrl: string | null; color: string; code: string };
+  team: { name: string; shortName: string; slug: string; logoUrl: string | null; color: string; color2: string | null; code: string };
   align: "left" | "right";
 }) {
   return (
@@ -118,7 +118,7 @@ function TeamSide({
         align === "right" ? "sm:flex-row-reverse sm:text-right" : "sm:text-left"
       }`}
     >
-      <TeamBadge name={team.name} code={team.code} logoUrl={team.logoUrl} color={team.color} size={44} />
+      <TeamBadge name={team.name} code={team.code} logoUrl={team.logoUrl} color={team.color} color2={team.color2} size={44} />
       <span className="line-clamp-2 text-xs font-semibold sm:truncate sm:text-base">{team.name}</span>
     </Link>
   );

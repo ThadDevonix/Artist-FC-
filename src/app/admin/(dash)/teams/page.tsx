@@ -50,6 +50,13 @@ export default async function TeamsPage({ searchParams }: PageProps<"/admin/team
                 <input type="color" name="color" defaultValue={editing?.color ?? "#1f2937"} className="h-9 w-16 rounded-lg border border-line" />
               </Field>
             </div>
+            <Field label="สีที่ 2" hint="ไม่ติ๊ก = ใช้สีเดียว · ติ๊ก = วงกลมผ่าครึ่ง บนสีหลัก ล่างสีที่ 2">
+              <span className="flex items-center gap-3 text-sm">
+                <input type="checkbox" name="useColor2" defaultChecked={!!editing?.color2} className="size-4 accent-brand" />
+                ใช้ 2 สี
+                <input type="color" name="color2" defaultValue={editing?.color2 ?? "#ffffff"} className="h-9 w-16 rounded-lg border border-line" />
+              </span>
+            </Field>
             <Field label="สนามเหย้า">
               <input name="venue" defaultValue={editing?.venue ?? ""} className={inputClass} />
             </Field>
@@ -86,7 +93,7 @@ export default async function TeamsPage({ searchParams }: PageProps<"/admin/team
                   <tr key={t.id} className="border-b border-line last:border-0 hover:bg-canvas">
                     <td className="min-w-0 py-2.5 pl-3 sm:pl-4">
                       <span className="flex items-center gap-2.5">
-                        <TeamBadge name={t.name} code={t.code} logoUrl={t.logoUrl} color={t.color} size={26} />
+                        <TeamBadge name={t.name} code={t.code} logoUrl={t.logoUrl} color={t.color} color2={t.color2} size={26} />
                         <span>
                           <span className="block font-medium">{t.name}</span>
                           <span className="block text-xs text-muted">{t.code} · {t.city ?? "—"}</span>
