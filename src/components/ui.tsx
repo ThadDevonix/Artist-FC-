@@ -109,6 +109,16 @@ export function PlayerAvatar({
   );
 }
 
+/** หัวการ์ดตอนกำลังแก้ไข — บอกชัดว่ากำลังแก้ใครอยู่ */
+export function EditingTitle({ label, name }: { label: string; name: string }) {
+  return (
+    <h2 className="min-w-0 text-lg font-semibold">
+      {label}
+      <span className="mt-1 block truncate rounded-lg bg-brand-soft px-2.5 py-1 text-sm font-medium text-brand">{name}</span>
+    </h2>
+  );
+}
+
 /** จุดแสดงผล 5 นัดล่าสุด — เขียว ชนะ / เทา เสมอ / แดง แพ้ */
 export function FormDots({
   form,
@@ -147,12 +157,14 @@ export function FormDots({
 }
 
 export function Card({
+  id,
   title,
   action,
   children,
   className = "",
   bodyClassName = "",
 }: {
+  id?: string;
   title?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
@@ -161,6 +173,7 @@ export function Card({
 }) {
   return (
     <section
+      id={id}
       className={`rounded-2xl border border-line bg-surface ${className}`}
     >
       {(title || action) && (

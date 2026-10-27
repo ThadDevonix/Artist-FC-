@@ -25,10 +25,28 @@ export type MatchPermission = {
   reason: string | null;
 };
 
+type OfficialRef = { userId: string | null } | null;
+
 type MatchLike = {
-  refereeId: string | null;
   status: MatchStatus;
+  referee: OfficialRef;
+  assistant1: OfficialRef;
+  assistant2: OfficialRef;
+  fourthOfficial: OfficialRef;
 };
+
+/** include ที่ต้องใส่ตอนดึงนัด เพื่อให้ matchPermission รู้ว่าบัญชีไหนอยู่ในทีมผู้ตัดสิน */
+export const matchOfficialsInclude = {
+  referee: { select: { userId: true } },
+  assistant1: { select: { userId: true } },
+  assistant2: { select: { userId: true } },
+  fourthOfficial: { select: { userId: true } },
+} as const;
+
+/** บัญชีนี้อยู่ในทีมผู้ตัดสินของนัดนี้ไหม (ช่องใดก็ได้ — ผู้ช่วยหรือผู้ตัดสินที่ 4 ก็กรอกรายงานได้) */
+export function isMatchOfficial(match: MatchLike, userId: string) {
+  return [match.referee, match.assistant1, match.assistant2, match.fourthOfficial].some((o) => o?.userId === userId);
+}
 
 export const NOT_YOUR_MATCH = "คุณไม่ได้เป็นผู้ตัดสินของนัดนี้";
 export const ALREADY_APPROVED = "นัดนี้อนุมัติแล้ว แก้ไขได้เฉพาะผู้ดูแลระบบ";
@@ -37,14 +55,14 @@ export const ALREADY_APPROVED = "นัดนี้อนุมัติแล�
  * สิทธิ์ของผู้ใช้คนนี้ต่อนัดนี้
  *
  * ผู้ดูแลระบบ — ทำได้ทุกอย่าง
- * กรรมการ     — เฉพาะนัดที่ตัวเองเป็นผู้ตัดสิน และเฉพาะตอนที่ยังไม่อนุมัติ
+ * กรรมการ     — เฉพาะนัดที่ตัวเองอยู่ในทีมผู้ตัดสิน และเฉพาะตอนที่ยังไม่อนุมัติ
  */
 export function matchPermission(session: Session, match: MatchLike): MatchPermission {
   if (session.role === "ADMIN") {
     return { canEdit: true, canApprove: true, canManage: true, reason: null };
   }
 
-  if (match.refereeId !== session.userId) {
+  if (!isMatchOfficial(match, session.userId)) {
     return { canEdit: false, canApprove: false, canManage: false, reason: NOT_YOUR_MATCH };
   }
 
@@ -60,7 +78,7 @@ export function matchPermission(session: Session, match: MatchLike): MatchPermis
  * คืน error เป็นข้อความไทยพร้อมแสดงบนฟอร์ม ไม่ throw เพื่อให้ฟอร์มยังอยู่ครบ
  */
 export async function loadEditableMatch(session: Session, matchId: string) {
-  const match = await db.match.findUnique({ where: { id: matchId } });
+  const match = await db.match.findUnique({ where: { id: matchId }, include: matchOfficialsInclude });
   if (!match) return { ok: false as const, error: "ไม่พบนัดนี้" };
 
   const permission = matchPermission(session, match);

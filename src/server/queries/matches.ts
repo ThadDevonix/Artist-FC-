@@ -60,6 +60,21 @@ export async function getTeamMatches(seasonId: string, teamId: string) {
   });
 }
 
+/** นัดที่บัญชีนี้อยู่ในทีมผู้ตัดสิน (ช่องใดช่องหนึ่งใน 4 ช่อง) */
+export function officiatedBy(userId: string) {
+  return {
+    OR: [
+      { referee: { userId } },
+      { assistant1: { userId } },
+      { assistant2: { userId } },
+      { fourthOfficial: { userId } },
+    ],
+  };
+}
+
+const officialName = { select: { id: true, name: true } } as const;
+const officialWithUser = { select: { id: true, name: true, userId: true } } as const;
+
 /** รายละเอียดนัดสำหรับหน้าสาธารณะ — พร้อมไทม์ไลน์เหตุการณ์ */
 export async function getMatchDetail(id: string) {
   return db.match.findUnique({
@@ -68,7 +83,10 @@ export async function getMatchDetail(id: string) {
       homeTeam: true,
       awayTeam: true,
       season: { select: { name: true } },
-      referee: { select: { name: true } },
+      referee: officialName,
+      assistant1: officialName,
+      assistant2: officialName,
+      fourthOfficial: officialName,
       events: {
         orderBy: [{ minute: "asc" }, { createdAt: "asc" }],
         include: {
@@ -87,7 +105,11 @@ export async function getMatchForAdmin(id: string) {
     include: {
       homeTeam: true,
       awayTeam: true,
-      referee: { select: { id: true, name: true } },
+      // userId ใช้ตัดสินสิทธิ์ (matchPermission) ว่าบัญชีที่ล็อกอินอยู่ในทีมผู้ตัดสินไหม
+      referee: officialWithUser,
+      assistant1: officialWithUser,
+      assistant2: officialWithUser,
+      fourthOfficial: officialWithUser,
       submittedBy: { select: { name: true } },
       approvedBy: { select: { name: true } },
       events: {
@@ -105,14 +127,14 @@ export async function getMatchForAdmin(id: string) {
 /** รายการนัดในหน้าบันทึกผล พร้อมตัวกรอง */
 export async function listMatchesForAdmin(
   seasonId: string,
-  filters: { status?: MatchStatus; round?: number; refereeId?: string } = {},
+  filters: { status?: MatchStatus; round?: number; officialUserId?: string } = {},
 ) {
   return db.match.findMany({
     where: {
       seasonId,
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.round ? { round: filters.round } : {}),
-      ...(filters.refereeId ? { refereeId: filters.refereeId } : {}),
+      ...(filters.officialUserId ? officiatedBy(filters.officialUserId) : {}),
     },
     orderBy: [{ round: "asc" }, { kickoffAt: "asc" }],
     include: {
@@ -156,16 +178,16 @@ export async function listPendingMatches(seasonId: string, take = 8) {
   });
 }
 
-/** นัดที่ยังไม่แข่ง (กรองเฉพาะของผู้ตัดสินคนหนึ่งได้) */
+/** นัดที่ยังไม่แข่ง (กรองเฉพาะนัดที่บัญชีหนึ่งอยู่ในทีมผู้ตัดสินได้) */
 export async function listUpcomingMatches(
   seasonId: string,
-  options: { refereeId?: string; take?: number } = {},
+  options: { officialUserId?: string; take?: number } = {},
 ) {
   return db.match.findMany({
     where: {
       seasonId,
       status: { in: ["SCHEDULED", "LIVE"] },
-      ...(options.refereeId ? { refereeId: options.refereeId } : {}),
+      ...(options.officialUserId ? officiatedBy(options.officialUserId) : {}),
     },
     orderBy: { kickoffAt: "asc" },
     take: options.take ?? 8,

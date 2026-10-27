@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Card, PlayerAvatar, POSITION_LABEL, TeamBadge } from "@/components/ui";
+import { Card, EditingTitle, PlayerAvatar, POSITION_LABEL, TeamBadge } from "@/components/ui";
 import { SubmitButton } from "@/components/admin/Form";
+import { EditLink } from "@/components/admin/EditLink";
+import { EDIT_FORM_ID, editingCardClass, editingRowClass } from "@/components/admin/editing";
 import { PlayerForm } from "@/components/admin/PlayerForm";
 import { RosterImport } from "@/components/admin/RosterImport";
 import { StaffForm } from "@/components/admin/StaffForm";
@@ -100,7 +102,12 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
         <div className="space-y-6 lg:order-2">
           {tab === "players" ? (
             <>
-              <Card title={editing ? "แก้ไขนักเตะ" : "เพิ่มนักเตะ"} bodyClassName="px-4 pb-5 sm:px-5">
+              <Card
+                id={EDIT_FORM_ID}
+                title={editing ? <EditingTitle label="แก้ไขนักเตะ" name={editing.name} /> : "เพิ่มนักเตะ"}
+                className={editing ? editingCardClass : "scroll-mt-32"}
+                bodyClassName="px-4 pb-5 sm:px-5"
+              >
                 <PlayerForm teamId={team.id} player={editing} teams={allTeams} cancelHref={base} color={team.color} color2={team.color2} />
               </Card>
               <Card title="นำเข้านักเตะหลายคน" bodyClassName="px-4 pb-5 sm:px-5">
@@ -108,7 +115,12 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
               </Card>
             </>
           ) : (
-            <Card title={editingS ? "แก้ไขทีมงาน" : "เพิ่มทีมงาน"} bodyClassName="px-4 pb-5 sm:px-5">
+            <Card
+              id={EDIT_FORM_ID}
+              title={editingS ? <EditingTitle label="แก้ไขทีมงาน" name={editingS.name} /> : "เพิ่มทีมงาน"}
+              className={editingS ? editingCardClass : "scroll-mt-32"}
+              bodyClassName="px-4 pb-5 sm:px-5"
+            >
               <StaffForm teamId={team.id} staff={editingS} cancelHref={staffBase} color={team.color} color2={team.color2} />
             </Card>
           )}
@@ -141,7 +153,7 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
                     {players.map((p) => (
                       <tr
                         key={p.id}
-                        className={`border-b border-line last:border-0 hover:bg-canvas ${!p.active ? "opacity-50" : ""} ${editing?.id === p.id ? "bg-brand-soft" : ""}`}
+                        className={`border-b border-line last:border-0 ${editing?.id === p.id ? editingRowClass : "hover:bg-canvas"} ${!p.active ? "opacity-50" : ""}`}
                       >
                         <td className="py-2 pl-3 text-center tnum text-muted sm:pl-4">{p.number ?? "—"}</td>
                         <td className="min-w-0 py-2 pr-2">
@@ -162,9 +174,7 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
                         </td>
                         <td className="py-2 pr-3 text-right sm:pr-4">
                           <span className="inline-flex gap-1.5">
-                            <Link href={`${base}?player=${p.id}`} className="rounded-lg border border-line px-2.5 py-1 text-xs hover:bg-surface">
-                              แก้ไข
-                            </Link>
+                            <EditLink href={`${base}?player=${p.id}`} active={editing?.id === p.id} />
                             <form action={deletePlayerAction}>
                               <input type="hidden" name="id" value={p.id} />
                               <SubmitButton variant="ghost" className="!px-2.5 !py-1 !text-xs" confirm={`ลบ ${p.name}? เหตุการณ์ในเกมที่อ้างถึงนักเตะคนนี้จะไม่มีชื่อกำกับ`}>
@@ -193,7 +203,7 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
                   {staff.map((s) => (
                     <tr
                       key={s.id}
-                      className={`border-b border-line last:border-0 hover:bg-canvas ${!s.active ? "opacity-50" : ""} ${editingS?.id === s.id ? "bg-brand-soft" : ""}`}
+                      className={`border-b border-line last:border-0 ${editingS?.id === s.id ? editingRowClass : "hover:bg-canvas"} ${!s.active ? "opacity-50" : ""}`}
                     >
                       <td className="min-w-0 py-2 pl-3 pr-2 sm:pl-4">
                         <span className="flex items-center gap-2.5">
@@ -213,9 +223,7 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
                       </td>
                       <td className="py-2 pr-3 text-right sm:pr-4">
                         <span className="inline-flex gap-1.5">
-                          <Link href={`${staffBase}&staff=${s.id}`} className="rounded-lg border border-line px-2.5 py-1 text-xs hover:bg-surface">
-                            แก้ไข
-                          </Link>
+                          <EditLink href={`${staffBase}&staff=${s.id}`} active={editingS?.id === s.id} />
                           <form action={deleteStaffAction}>
                             <input type="hidden" name="id" value={s.id} />
                             <SubmitButton variant="ghost" className="!px-2.5 !py-1 !text-xs" confirm={`ลบ ${s.name} ออกจากทีมงาน?`}>

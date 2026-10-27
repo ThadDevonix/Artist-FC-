@@ -2,7 +2,7 @@
 
 import { db } from "@/server/db";
 import { audit, requireSession } from "@/server/auth";
-import { loadEditableMatch, matchPermission } from "@/server/guards";
+import { loadEditableMatch, matchPermission, matchOfficialsInclude } from "@/server/guards";
 import { eventIdSchema, eventSchema, parseForm, type ActionState } from "@/server/validation";
 import { refreshAll } from "./shared";
 
@@ -42,7 +42,7 @@ export async function deleteEventAction(formData: FormData) {
 
   const event = await db.matchEvent.findUnique({
     where: { id: parsed.data.eventId },
-    include: { match: { select: { id: true, refereeId: true, status: true } } },
+    include: { match: { select: { id: true, status: true, ...matchOfficialsInclude } } },
   });
   if (!event) return;
 

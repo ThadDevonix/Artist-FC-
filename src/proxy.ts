@@ -36,6 +36,7 @@ export const config = {
     "/admin/teams/:path*",
     "/admin/players/:path*",
     "/admin/users/:path*",
+    "/admin/officials/:path*",
     "/admin/activity/:path*",
   ],
 };

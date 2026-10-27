@@ -44,6 +44,13 @@ function slugify(name: string, i: number) {
   return `${name.replace(/\s+/g, "-")}-${i}`;
 }
 
+/** ทีมผู้ตัดสินของนัด — ผู้ตัดสินที่ 1 มาจากคนที่ใช้ระบบได้ ผู้ช่วย/ผู้ตัดสินที่ 4 สุ่มจากที่เหลือไม่ซ้ำกัน */
+function pickOfficials(main: { id: string }[], others: { id: string }[]) {
+  const referee = main[Math.floor(Math.random() * main.length)];
+  const pool = [...main, ...others].filter((o) => o.id !== referee.id).sort(() => Math.random() - 0.5);
+  return { refereeId: referee.id, assistant1Id: pool[0].id, assistant2Id: pool[1].id, fourthOfficialId: pool[2].id };
+}
+
 async function main() {
   console.log("ล้างข้อมูลเดิม…");
   await db.auditLog.deleteMany();
@@ -52,7 +59,9 @@ async function main() {
   await db.seasonTeam.deleteMany();
   await db.zone.deleteMany();
   await db.player.deleteMany();
+  await db.staff.deleteMany();
   await db.team.deleteMany();
+  await db.official.deleteMany();
   await db.season.deleteMany();
   await db.user.deleteMany();
 
@@ -69,6 +78,17 @@ async function main() {
       db.user.create({
         data: { email: `referee${i + 1}@artistfc.local`, name, passwordHash: refPass, role: "REFEREE" },
       }),
+    ),
+  );
+
+  // ── ผู้ตัดสิน: 3 คนแรกผูกกับบัญชีกรรมการ (บันทึกผลได้) ที่เหลือไม่ได้ใช้ระบบ ──
+  console.log("สร้างผู้ตัดสิน…");
+  const refereeOfficials = await Promise.all(
+    referees.map((u) => db.official.create({ data: { name: u.name, userId: u.id, level: "ผู้ตัดสินระดับ 1" } })),
+  );
+  const otherOfficials = await Promise.all(
+    ["ธงชัย ข้างสนาม", "มานพ ล้ำหน้า", "สุดา เส้นข้าง", "อำนาจ เวลาทด"].map((name) =>
+      db.official.create({ data: { name, level: "ผู้ตัดสินระดับ 2" } }),
     ),
   );
 
@@ -143,7 +163,7 @@ async function main() {
           awayTeamId: p.awayTeamId,
           kickoffAt,
           venue: byId.get(p.homeTeamId)?.venue ?? null,
-          refereeId: pick(referees).id,
+          ...pickOfficials(refereeOfficials, otherOfficials),
           status: "SCHEDULED",
         },
       }),
@@ -221,7 +241,7 @@ async function main() {
         homeGoals,
         awayGoals,
         status: isPending ? "PENDING" : "FINISHED",
-        submittedById: match.refereeId,
+        submittedById: refereeOfficials.find((o) => o.id === match.refereeId)?.userId ?? null,
         submittedAt: new Date(match.kickoffAt.getTime() + 2 * 60 * 60 * 1000),
         ...(isPending ? {} : { approvedById: admin.id, approvedAt: new Date(match.kickoffAt.getTime() + 3 * 60 * 60 * 1000) }),
         events: { create: events.sort((a, b) => a.minute - b.minute) },

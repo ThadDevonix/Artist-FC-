@@ -11,6 +11,12 @@ export default async function MatchPage({ params }: PageProps<"/matches/[id]">) 
   const match = await getMatchDetail(id);
   if (!match) notFound();
 
+  const officials = [
+    { label: "ผู้ตัดสิน", person: match.referee },
+    { label: "ผู้ช่วยผู้ตัดสินที่ 1", person: match.assistant1 },
+    { label: "ผู้ช่วยผู้ตัดสินที่ 2", person: match.assistant2 },
+    { label: "ผู้ตัดสินที่ 4", person: match.fourthOfficial },
+  ].flatMap((o) => (o.person ? [{ label: o.label, name: o.person.name }] : []));
   const played = match.homeGoals !== null && match.awayGoals !== null;
   const countEvents = (teamId: string, types: string[]) =>
     match.events.filter((e) => e.teamId === teamId && types.includes(e.type)).length;
@@ -46,7 +52,6 @@ export default async function MatchPage({ params }: PageProps<"/matches/[id]">) 
           <p className="mt-5 text-center text-sm text-muted">
             {thaiDateTime(match.kickoffAt)}
             {match.venue ? ` · ${match.venue}` : ""}
-            {match.referee ? ` · ผู้ตัดสิน ${match.referee.name}` : ""}
           </p>
           {match.status === "PENDING" && (
             <p className="mt-2 text-center text-sm text-amber-700 dark:text-amber-300">
@@ -80,25 +85,40 @@ export default async function MatchPage({ params }: PageProps<"/matches/[id]">) 
           )}
         </Card>
 
-        <Card title="สรุป">
-          <dl className="divide-y divide-line">
-            <SummaryRow
-              label="ประตู"
-              home={countEvents(match.homeTeamId, ["GOAL", "PENALTY_GOAL"])}
-              away={countEvents(match.awayTeamId, ["GOAL", "PENALTY_GOAL"])}
-            />
-            <SummaryRow
-              label="ใบเหลือง"
-              home={countEvents(match.homeTeamId, ["YELLOW", "SECOND_YELLOW"])}
-              away={countEvents(match.awayTeamId, ["YELLOW", "SECOND_YELLOW"])}
-            />
-            <SummaryRow
-              label="ใบแดง"
-              home={countEvents(match.homeTeamId, ["RED"])}
-              away={countEvents(match.awayTeamId, ["RED"])}
-            />
-          </dl>
-        </Card>
+        <div className="space-y-6">
+          <Card title="สรุป">
+            <dl className="divide-y divide-line">
+              <SummaryRow
+                label="ประตู"
+                home={countEvents(match.homeTeamId, ["GOAL", "PENALTY_GOAL"])}
+                away={countEvents(match.awayTeamId, ["GOAL", "PENALTY_GOAL"])}
+              />
+              <SummaryRow
+                label="ใบเหลือง"
+                home={countEvents(match.homeTeamId, ["YELLOW", "SECOND_YELLOW"])}
+                away={countEvents(match.awayTeamId, ["YELLOW", "SECOND_YELLOW"])}
+              />
+              <SummaryRow
+                label="ใบแดง"
+                home={countEvents(match.homeTeamId, ["RED"])}
+                away={countEvents(match.awayTeamId, ["RED"])}
+              />
+            </dl>
+          </Card>
+
+          {officials.length > 0 && (
+            <Card title="ทีมผู้ตัดสิน">
+              <dl className="divide-y divide-line text-sm">
+                {officials.map((o) => (
+                  <div key={o.label} className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
+                    <dt className="text-muted">{o.label}</dt>
+                    <dd className="text-right font-medium">{o.name}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );

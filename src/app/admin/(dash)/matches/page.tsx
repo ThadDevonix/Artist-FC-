@@ -30,7 +30,7 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
   const matches = await listMatchesForAdmin(season.id, {
     status,
     round,
-    ...(mine ? { refereeId: session.userId } : {}),
+    ...(mine ? { officialUserId: session.userId } : {}),
   });
 
   const link = (patch: Record<string, string | undefined>) => {

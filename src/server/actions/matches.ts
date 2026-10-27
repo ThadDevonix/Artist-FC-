@@ -101,12 +101,12 @@ export async function rejectMatchAction(formData: FormData) {
   refreshAll();
 }
 
-/** แก้วันเวลา สนาม ผู้ตัดสิน และสถานะ — เฉพาะผู้ดูแลระบบ */
-export async function updateMatchAction(formData: FormData) {
+/** แก้วันเวลา สนาม ทีมผู้ตัดสิน และสถานะ — เฉพาะผู้ดูแลระบบ */
+export async function updateMatchAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireRole("ADMIN");
   const parsed = parseForm(matchDetailSchema, formData);
-  if (!parsed.ok) return;
-  const { matchId, kickoffAt, venue, refereeId, status } = parsed.data;
+  if (!parsed.ok) return { error: parsed.error };
+  const { matchId, kickoffAt, venue, refereeId, assistant1Id, assistant2Id, fourthOfficialId, status } = parsed.data;
 
   await db.match.update({
     where: { id: matchId },
@@ -114,9 +114,13 @@ export async function updateMatchAction(formData: FormData) {
       ...(kickoffAt ? { kickoffAt } : {}),
       venue,
       refereeId,
+      assistant1Id,
+      assistant2Id,
+      fourthOfficialId,
       ...(status ? { status } : {}),
     },
   });
   await audit(session.userId, "MATCH_UPDATE", "Match", matchId);
   refreshAll();
+  return { ok: "บันทึกรายละเอียดนัดแล้ว" };
 }

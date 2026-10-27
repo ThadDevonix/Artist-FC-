@@ -40,6 +40,7 @@ async function main() {
     db.match.findFirstOrThrow({ where: { status: "PENDING" } }),
   ]);
 
+  const referee = await db.user.findUniqueOrThrow({ where: { email: "referee1@artistfc.local" } });
   const adminCookie = await cookieFor("admin@artistfc.local");
   const refCookie = await cookieFor("referee1@artistfc.local");
 
@@ -56,7 +57,7 @@ async function main() {
     `/admin/matches/${match.id}`, `/admin/matches/${pendingMatch.id}`,
     "/admin/seasons", "/admin/teams", "/admin/teams?q=a",
     `/admin/teams/${team.id}`, `/admin/teams/${team.id}?edit=team`, `/admin/teams/${team.id}?tab=staff`, `/admin/teams/${player.teamId}?player=${player.id}`,
-    "/admin/users", "/admin/activity",
+    "/admin/users", `/admin/users?edit=${referee.id}`, "/admin/officials", "/admin/activity",
   ];
 
   let failures = 0;
@@ -83,7 +84,7 @@ async function main() {
     const r = await hit(p, refCookie);
     check(`${p} เข้าได้`, r.status === 200, `HTTP ${r.status}`);
   }
-  for (const p of ["/admin/teams", `/admin/teams/${team.id}`, "/admin/users", "/admin/seasons", "/admin/activity"]) {
+  for (const p of ["/admin/teams", `/admin/teams/${team.id}`, "/admin/officials", "/admin/users", "/admin/seasons", "/admin/activity"]) {
     const r = await hit(p, refCookie);
     const blocked = r.status === 307 || r.status === 302;
     check(`${p} ถูกกัน`, blocked, `HTTP ${r.status} → ${r.location ?? "-"}`);

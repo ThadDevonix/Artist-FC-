@@ -27,10 +27,32 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  refereeFor  Match[]    @relation("MatchReferee")
+  official    Official? // บัญชีนี้เป็นของผู้ตัดสินคนไหน (ถ้ามี) — ใช้ตัดสินสิทธิ์บันทึกผล
   submitted   Match[]    @relation("MatchSubmitter")
   approved    Match[]    @relation("MatchApprover")
   auditEntries AuditLog[]
+}
+
+// ───────────────────────────── ผู้ตัดสิน ─────────────────────────────
+
+// ผู้ตัดสินในสนาม — แยกจากบัญชีผู้ใช้ เพราะบางคนไม่ได้ใช้ระบบ
+// ถ้าผูกกับบัญชีกรรมการ (userId) คนนั้นจะบันทึกผลนัดที่ตัวเองอยู่ในทีมผู้ตัดสินได้
+model Official {
+  id          String   @id @default(cuid())
+  name        String
+  level       String? // ระดับ/สังกัด เช่น "ผู้ตัดสินระดับ 1", "สมาคมฯ ภาคอีสาน"
+  nationality String?
+  photoUrl    String?
+  userId      String?  @unique
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user                User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  refereeMatches      Match[] @relation("MatchReferee")
+  assistant1Matches   Match[] @relation("MatchAssistant1")
+  assistant2Matches   Match[] @relation("MatchAssistant2")
+  fourthOfficialMatch Match[] @relation("MatchFourthOfficial")
 }
 
 // ───────────────────────────── ลีก / ฤดูกาล ─────────────────────────────
@@ -190,7 +212,11 @@ model Match {
   awayGoals  Int?
   notes      String?
 
-  refereeId   String?
+  // ทีมผู้ตัดสิน — ผู้ตัดสินที่ 1 คือคนแจกใบเหลือง/แดงทุกใบตามกติกา สถิติผู้ตัดสินนับจากช่องนี้
+  refereeId        String?
+  assistant1Id     String?
+  assistant2Id     String?
+  fourthOfficialId String?
   submittedById String?
   submittedAt   DateTime?
   approvedById  String?
@@ -202,7 +228,10 @@ model Match {
   season      Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   homeTeam    Team   @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Cascade)
   awayTeam    Team   @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Cascade)
-  referee     User?  @relation("MatchReferee", fields: [refereeId], references: [id], onDelete: SetNull)
+  referee        Official? @relation("MatchReferee", fields: [refereeId], references: [id], onDelete: SetNull)
+  assistant1     Official? @relation("MatchAssistant1", fields: [assistant1Id], references: [id], onDelete: SetNull)
+  assistant2     Official? @relation("MatchAssistant2", fields: [assistant2Id], references: [id], onDelete: SetNull)
+  fourthOfficial Official? @relation("MatchFourthOfficial", fields: [fourthOfficialId], references: [id], onDelete: SetNull)
   submittedBy User?  @relation("MatchSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
   approvedBy  User?  @relation("MatchApprover", fields: [approvedById], references: [id], onDelete: SetNull)
 

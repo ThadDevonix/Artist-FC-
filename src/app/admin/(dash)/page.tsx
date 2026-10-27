@@ -38,7 +38,7 @@ export default async function AdminHome({ searchParams }: PageProps<"/admin">) {
     getSeasonMatchCounts(season.id),
     countSeasonTeams(season.id),
     admin ? listPendingMatches(season.id) : Promise.resolve([]),
-    listUpcomingMatches(season.id, admin ? {} : { refereeId: session.userId }),
+    listUpcomingMatches(season.id, admin ? {} : { officialUserId: session.userId }),
     admin ? recentAuditLogs() : Promise.resolve([]),
   ]);
 

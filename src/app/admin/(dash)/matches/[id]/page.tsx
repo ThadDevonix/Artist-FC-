@@ -13,9 +13,16 @@ import {
   updateMatchAction,
 } from "@/server/actions";
 import { requireSession } from "@/server/auth";
-import { matchPermission } from "@/server/guards";
-import { getMatchForAdmin, listActiveUsers, listMatchSquads } from "@/server/queries";
+import { isMatchOfficial, matchPermission } from "@/server/guards";
+import { getMatchForAdmin, listActiveOfficials, listMatchSquads } from "@/server/queries";
 import { decodeParam, minuteLabel, thaiDateTime, toDateTimeLocal } from "@/lib/format";
+
+const OFFICIAL_SLOTS = [
+  { name: "refereeId", label: "ผู้ตัดสิน" },
+  { name: "assistant1Id", label: "ผู้ช่วยผู้ตัดสินที่ 1" },
+  { name: "assistant2Id", label: "ผู้ช่วยผู้ตัดสินที่ 2" },
+  { name: "fourthOfficialId", label: "ผู้ตัดสินที่ 4" },
+] as const;
 
 export default async function AdminMatchPage({ params }: PageProps<"/admin/matches/[id]">) {
   const id = decodeParam((await params).id);
@@ -27,8 +34,8 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
 
   const permission = matchPermission(session, match);
 
-  // กรรมการเข้าได้เฉพาะนัดของตัวเอง — ใช้กฎชุดเดียวกับที่ server action ใช้
-  if (!admin && match.refereeId !== session.userId) {
+  // กรรมการเข้าได้เฉพาะนัดที่ตัวเองอยู่ในทีมผู้ตัดสิน — ใช้กฎชุดเดียวกับที่ server action ใช้
+  if (!admin && !isMatchOfficial(match, session.userId)) {
     return (
       <Card>
         <p className="px-5 py-12 text-center text-muted">{permission.reason}</p>
@@ -38,10 +45,13 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
 
   const locked = !permission.canEdit;
 
-  const [squads, referees] = await Promise.all([
+  const [squads, activeOfficials] = await Promise.all([
     listMatchSquads(match.homeTeamId, match.awayTeamId),
-    permission.canManage ? listActiveUsers() : Promise.resolve([]),
+    permission.canManage ? listActiveOfficials() : Promise.resolve([]),
   ]);
+  // คนที่ถูกตั้งไว้แล้วแต่ภายหลังปิดการทำหน้าที่ ยังต้องอยู่ในตัวเลือก ไม่งั้นบันทึกแล้วช่องจะหาย
+  const assigned = [match.referee, match.assistant1, match.assistant2, match.fourthOfficial].filter((o) => o !== null);
+  const officials = [...activeOfficials, ...assigned.filter((o) => !activeOfficials.some((a) => a.id === o.id))];
 
   return (
     <div className="space-y-6">
@@ -149,7 +159,7 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
 
           {permission.canManage && (
             <Card title="รายละเอียดนัด" bodyClassName="px-4 pb-5 sm:px-5">
-              <form action={updateMatchAction} className="space-y-3">
+              <ActionForm action={updateMatchAction} className="space-y-3">
                 <input type="hidden" name="matchId" value={match.id} />
                 <Field label="วันและเวลาแข่ง">
                   <input type="datetime-local" name="kickoffAt" defaultValue={toDateTimeLocal(match.kickoffAt)} className={inputClass} />
@@ -157,16 +167,25 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
                 <Field label="สนาม">
                   <input name="venue" defaultValue={match.venue ?? ""} className={inputClass} />
                 </Field>
-                <Field label="ผู้ตัดสิน">
-                  <select name="refereeId" defaultValue={match.refereeId ?? ""} className={inputClass}>
-                    <option value="">— ยังไม่กำหนด —</option>
-                    {referees.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name} ({r.role === "ADMIN" ? "ผู้ดูแล" : "กรรมการ"})
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                <fieldset className="space-y-3 rounded-xl border border-line p-3">
+                  <legend className="px-1 text-sm font-medium">ทีมผู้ตัดสิน</legend>
+                  {OFFICIAL_SLOTS.map((slot) => (
+                    <Field key={slot.name} label={slot.label}>
+                      <select name={slot.name} defaultValue={match[slot.name] ?? ""} className={inputClass}>
+                        <option value="">— ยังไม่กำหนด —</option>
+                        {officials.map((o) => (
+                          <option key={o.id} value={o.id}>{o.name}</option>
+                        ))}
+                      </select>
+                    </Field>
+                  ))}
+                  {officials.length === 0 && (
+                    <p className="text-xs text-muted">
+                      ยังไม่มีรายชื่อผู้ตัดสิน — เพิ่มได้ที่เมนู{" "}
+                      <Link href="/admin/officials" className="text-brand hover:underline">ผู้ตัดสิน</Link>
+                    </p>
+                  )}
+                </fieldset>
                 <Field label="สถานะ">
                   <select name="status" defaultValue={match.status} className={inputClass}>
                     <option value="SCHEDULED">ยังไม่แข่ง</option>
@@ -178,7 +197,7 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
                   </select>
                 </Field>
                 <SubmitButton variant="ghost">บันทึกรายละเอียด</SubmitButton>
-              </form>
+              </ActionForm>
             </Card>
           )}
         </div>

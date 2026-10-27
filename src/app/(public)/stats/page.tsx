@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Card, PlayerAvatar, TeamBadge } from "@/components/ui";
 import { getSeasonBySlug, getStandings } from "@/server/queries";
-import { getCleanSheets, getLeaders, LEADER_LABELS, type LeaderBoard } from "@/server/queries";
+import { getCleanSheets, getLeaders, getRefereeStats, LEADER_LABELS, type LeaderBoard } from "@/server/queries";
 import { signed } from "@/lib/format";
 
 export const metadata = { title: "สถิติ" };
@@ -13,10 +13,11 @@ export default async function StatsPage({ searchParams }: PageProps<"/stats">) {
   const season = await getSeasonBySlug(typeof sp.season === "string" ? sp.season : undefined);
   if (!season) return <p className="py-10 text-center text-muted">ยังไม่มีฤดูกาลในระบบ</p>;
 
-  const [boards, { rows }, cleanSheets] = await Promise.all([
+  const [boards, { rows }, cleanSheets, referees] = await Promise.all([
     Promise.all(BOARDS.map(async (b) => ({ board: b, rows: await getLeaders(season.id, b, 10) }))),
     getStandings(season.id),
     getCleanSheets(season.id),
+    getRefereeStats(season.id),
   ]);
 
   const mostGoals = [...rows].sort((a, b) => b.goalsFor - a.goalsFor).slice(0, 5);
@@ -66,6 +67,53 @@ export default async function StatsPage({ searchParams }: PageProps<"/stats">) {
         <TeamStatCard title="เสียประตูน้อยที่สุด" rows={bestDefence.map((r) => ({ team: r.team, value: r.goalsAgainst }))} />
         <TeamStatCard title="ไม่เสียประตู (clean sheet)" rows={cleanSheets.slice(0, 5)} />
       </div>
+
+      {referees.length > 0 && (
+        <Card title="ผู้ตัดสิน" bodyClassName="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-line text-xs text-muted">
+                <th className="py-2 pl-3 text-left font-medium sm:pl-4">ผู้ตัดสิน</th>
+                <th className="w-14 py-2 text-center font-medium">นัด</th>
+                <th className="w-16 py-2 text-center font-medium">เหลือง</th>
+                <th className="w-14 py-2 text-center font-medium">แดง</th>
+                <th className="w-20 py-2 pr-3 text-center font-medium sm:pr-4">ใบ/นัด</th>
+              </tr>
+            </thead>
+            <tbody>
+              {referees.map((r) => (
+                <tr key={r.id} className="border-b border-line last:border-0">
+                  <td className="py-2 pl-3 sm:pl-4">
+                    <span className="flex items-center gap-3">
+                      <PlayerAvatar name={r.name} photoUrl={r.photoUrl} color="#374151" size={36} />
+                      <span className="truncate font-medium">{r.name}</span>
+                    </span>
+                  </td>
+                  <td className="py-2 text-center tnum">{r.matches}</td>
+                  <td className="py-2 text-center tnum">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span aria-hidden className="h-3.5 w-2.5 rounded-sm bg-yellow-400" />
+                      {r.yellow}
+                    </span>
+                  </td>
+                  <td className="py-2 text-center tnum">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span aria-hidden className="h-3.5 w-2.5 rounded-sm bg-loss" />
+                      {r.red}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-3 text-center font-semibold tnum sm:pr-4">
+                    {((r.yellow + r.red) / r.matches).toFixed(1)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="border-t border-line px-4 py-2 text-xs text-muted sm:px-5">
+            นับจากผู้ตัดสินที่ 1 ของนัดที่อนุมัติแล้ว (ผู้ตัดสินที่ 1 เป็นผู้แจกใบทุกใบตามกติกา)
+          </p>
+        </Card>
+      )}
 
       <Card title="สถิติทุกทีม" bodyClassName="overflow-x-auto">
         <table className="w-full text-sm">

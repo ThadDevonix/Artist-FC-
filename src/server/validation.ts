@@ -143,12 +143,34 @@ export const matchResultSchema = z.object({
   notes: optionalText,
 });
 
-export const matchDetailSchema = z.object({
-  matchId: required("ไม่พบนัดนี้"),
-  kickoffAt: optionalDate,
-  venue: optionalText,
-  refereeId: optionalText,
-  status: z.preprocess((v) => (v === "" ? undefined : v), matchStatusEnum.optional()),
+export const matchDetailSchema = z
+  .object({
+    matchId: required("ไม่พบนัดนี้"),
+    kickoffAt: optionalDate,
+    venue: optionalText,
+    refereeId: optionalText,
+    assistant1Id: optionalText,
+    assistant2Id: optionalText,
+    fourthOfficialId: optionalText,
+    status: z.preprocess((v) => (v === "" ? undefined : v), matchStatusEnum.optional()),
+  })
+  .refine(
+    (v) => {
+      const chosen = [v.refereeId, v.assistant1Id, v.assistant2Id, v.fourthOfficialId].filter(Boolean);
+      return new Set(chosen).size === chosen.length;
+    },
+    { message: "ผู้ตัดสิน 1 คนอยู่ได้แค่ตำแหน่งเดียวในนัดเดียวกัน" },
+  );
+
+export const officialSchema = z.object({
+  id: optionalText,
+  name: required("กรุณากรอกชื่อผู้ตัดสิน"),
+  level: optionalText,
+  nationality: optionalText,
+  userId: optionalText,
+  photoData: optionalText,
+  removePhoto: checkbox,
+  active: checkbox,
 });
 
 export const matchIdSchema = z.object({

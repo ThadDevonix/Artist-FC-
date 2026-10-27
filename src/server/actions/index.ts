@@ -8,5 +8,6 @@ export * from "./events";
 export * from "./teams";
 export * from "./players";
 export * from "./staff";
+export * from "./officials";
 export * from "./seasons";
 export * from "./users";
