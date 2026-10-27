@@ -39,5 +39,6 @@ export const config = {
     "/admin/users/:path*",
     "/admin/officials/:path*",
     "/admin/activity/:path*",
+    "/admin/export/:path*",
   ],
 };

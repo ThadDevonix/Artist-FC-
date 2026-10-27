@@ -1,3 +1,4 @@
+import { ExcelButton, exportHref } from "@/components/admin/ExcelButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BackLink, Card, EditingTitle, PlayerAvatar, POSITION_LABEL, TeamBadge } from "@/components/ui";
@@ -67,6 +68,9 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
               <Link href={`/teams/${team.slug}`} className="hover:text-brand">ดูหน้าเว็บ ›</Link>
             </p>
           </div>
+          <ExcelButton href={exportHref(tab === "staff" ? "staff" : "players", { team: team.id })}>
+            โหลด Excel {tab === "staff" ? "ทีมงาน" : "นักเตะ"}
+          </ExcelButton>
           <Modal
             title="แก้ไขสโมสร"
             defaultOpen={editTeam}

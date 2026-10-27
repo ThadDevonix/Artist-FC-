@@ -20,7 +20,8 @@
     "test:live": "tsx scripts/live-test.ts",
     "test:season": "tsx scripts/season-delete-test.ts",
     "test:schedule": "tsx scripts/schedule-test.ts",
-    "test": "npm run test:logic && npm run test:theme && npm run test:workflow && npm run test:pages && npm run test:responsive && npm run test:login && npm run test:flow && npm run test:roster && npm run test:live && npm run test:season && npm run test:schedule",
+    "test:export": "tsx scripts/export-test.ts",
+    "test": "npm run test:logic && npm run test:theme && npm run test:workflow && npm run test:pages && npm run test:responsive && npm run test:login && npm run test:flow && npm run test:roster && npm run test:live && npm run test:season && npm run test:schedule && npm run test:export",
     "postinstall": "prisma generate",
     "test:theme": "tsx scripts/theme-test.ts",
     "test:responsive": "tsx scripts/responsive-test.ts"
@@ -31,6 +32,7 @@
     "@vercel/blob": "^2.8.2",
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.9",
+    "exceljs": "^4.4.0",
     "jose": "^6.2.13",
     "next": "16.4.3",
     "pg": "^8.23.1",

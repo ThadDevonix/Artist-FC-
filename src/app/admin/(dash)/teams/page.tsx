@@ -1,3 +1,4 @@
+import { ExcelButton, exportHref } from "@/components/admin/ExcelButton";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Card, PlayerAvatar, TeamBadge } from "@/components/ui";
@@ -23,7 +24,11 @@ export default async function TeamsPage({ searchParams }: PageProps<"/admin/team
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">สโมสร/นักเตะ</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">สโมสร/นักเตะ</h1>
+        {/* หน้านี้เป็นรายชื่อสโมสร จึงมีแค่ปุ่มสโมสร — นักเตะ/ทีมงานโหลดได้ในหน้าของแต่ละสโมสร */}
+        <ExcelButton href={exportHref("clubs", { scope: "all" })}>โหลด Excel สโมสร</ExcelButton>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
         <div className="space-y-4">

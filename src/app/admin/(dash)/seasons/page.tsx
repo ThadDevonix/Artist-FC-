@@ -3,6 +3,10 @@ import { Card, TeamBadge } from "@/components/ui";
 import { ActionForm, Field, SubmitButton, inputClass } from "@/components/admin/Form";
 import { TypeToConfirm } from "@/components/admin/TypeToConfirm";
 import { FixtureFormat } from "@/components/admin/FixtureFormat";
+import { Modal } from "@/components/admin/Modal";
+import { SeasonPicker } from "@/components/admin/SeasonPicker";
+import { ExcelButton, exportHref } from "@/components/admin/ExcelButton";
+import { StandingsTable } from "@/components/StandingsTable";
 import {
   activateSeasonAction,
   assignSlotAction,
@@ -16,6 +20,7 @@ import { requireRole } from "@/server/auth";
 import {
   getSeasonBySlug,
   getSeasonMatchCounts,
+  getStandings,
   listAllTeams,
   listSeasons,
   listSeasonSlots,
@@ -27,6 +32,26 @@ import { parseTiebreakers, TIEBREAKER_LABELS, type Tiebreaker } from "@/lib/stan
 export const metadata = { title: "ฤดูกาล" };
 
 const ALL_TIEBREAKERS = Object.keys(TIEBREAKER_LABELS) as Tiebreaker[];
+
+const outlineButton =
+  "inline-flex shrink-0 items-center gap-2 rounded-lg border-2 border-brand px-4 py-2 text-sm font-semibold text-brand transition hover:bg-brand hover:text-white";
+
+function EditIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+      <path d="M4 20h4L18.5 9.5a2.1 2.1 0 00-4-4L4 16v4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M13.5 6.5l4 4" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 export default async function SeasonsPage({ searchParams }: PageProps<"/admin/seasons">) {
   await requireRole("ADMIN");
@@ -46,11 +71,12 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
     );
   }
 
-  const [allTeams, slots, zones, counts] = await Promise.all([
+  const [allTeams, slots, zones, counts, standings] = await Promise.all([
     listAllTeams(),
     listSeasonSlots(season.id),
     listSeasonZones(season.id),
     getSeasonMatchCounts(season.id),
+    getStandings(season.id),
   ]);
   const { total: matchCount, locked: lockedCount } = counts;
 
@@ -63,24 +89,14 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">ฤดูกาล</h1>
-        <div className="flex flex-wrap gap-2">
-          {seasons.map((s) => (
-            <Link
-              key={s.id}
-              href={`/admin/seasons?season=${s.slug}`}
-              className={`rounded-full border px-3 py-1.5 text-sm transition ${
-                s.id === season.id ? "border-ink bg-surface font-medium" : "border-line bg-surface text-muted hover:text-ink"
-              }`}
-            >
-              {s.name}
-              {s.isActive && <span className="ml-1.5 text-xs text-win">● ใช้งานอยู่</span>}
-            </Link>
-          ))}
-        </div>
+        <SeasonPicker
+          seasons={seasons.map((s) => ({ slug: s.slug, name: s.name, isActive: s.isActive }))}
+          current={season.slug}
+        />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="ตั้งค่าฤดูกาล" bodyClassName="px-4 pb-5 sm:px-5">
+      <div className="flex flex-wrap gap-2">
+        <Modal title={`ตั้งค่าฤดูกาล ${season.name}`} triggerClassName={outlineButton} trigger={<><EditIcon />แก้ไขการตั้งค่า</>}>
           <ActionForm action={saveSeasonAction} className="space-y-4">
             <input type="hidden" name="id" value={season.id} />
 
@@ -174,9 +190,80 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
               <TypeToConfirm expected={season.name} label="ลบฤดูกาลถาวร" />
             </ActionForm>
           </details>
-        </Card>
+        </Modal>
+        <Modal title="สร้างฤดูกาลใหม่" triggerClassName={outlineButton} trigger={<><PlusIcon />สร้างฤดูกาลใหม่</>}>
+          <NewSeasonForm />
+        </Modal>
+        <ExcelButton href={exportHref("all", { season: season.slug })}>โหลด Excel ทั้งฤดูกาล</ExcelButton>
+      </div>
 
-        <div className="space-y-6">
+      <Card
+        title={<h2 className="shrink-0 whitespace-nowrap text-lg font-semibold">ตารางคะแนน</h2>}
+        action={
+          <div className="flex flex-wrap justify-end gap-2">
+            <Modal title="โซนสีในตารางคะแนน" triggerClassName={outlineButton} trigger="โซนสี">
+              <p className="mb-3 text-sm text-muted">
+                แถบสีด้านซ้ายของตารางคะแนน เช่น โซนเข้ารอบชิง หรือโซนตกชั้น
+              </p>
+
+              <div className="space-y-2">
+                {zones.map((z) => (
+                  <form key={z.id} action={saveZoneAction} className="flex flex-wrap items-end gap-2 rounded-lg border border-line p-3">
+                    <input type="hidden" name="id" value={z.id} />
+                    <input type="hidden" name="seasonId" value={season.id} />
+                    <label className="flex-1 min-w-[160px]">
+                      <span className="mb-1 block text-xs text-muted">ชื่อโซน</span>
+                      <input name="label" defaultValue={z.label} className={inputClass} />
+                    </label>
+                    <label className="w-20">
+                      <span className="mb-1 block text-xs text-muted">ตั้งแต่</span>
+                      <input type="number" name="fromPos" min={1} defaultValue={z.fromPos} className={inputClass} />
+                    </label>
+                    <label className="w-20">
+                      <span className="mb-1 block text-xs text-muted">ถึง</span>
+                      <input type="number" name="toPos" min={1} defaultValue={z.toPos} className={inputClass} />
+                    </label>
+                    <label className="w-16">
+                      <span className="mb-1 block text-xs text-muted">สี</span>
+                      <input type="color" name="color" defaultValue={z.color} className="h-9 w-full rounded-lg border border-line" />
+                    </label>
+                    <SubmitButton variant="ghost">บันทึก</SubmitButton>
+                    <button name="_delete" value="1" className="rounded-lg border border-line px-3 py-2 text-sm text-muted hover:border-loss hover:text-loss">
+                      ลบ
+                    </button>
+                  </form>
+                ))}
+
+                <form action={saveZoneAction} className="flex flex-wrap items-end gap-2 rounded-lg border border-dashed border-line p-3">
+                  <input type="hidden" name="seasonId" value={season.id} />
+                  <label className="flex-1 min-w-[160px]">
+                    <span className="mb-1 block text-xs text-muted">ชื่อโซนใหม่</span>
+                    <input name="label" placeholder="เช่น ตกชั้น" className={inputClass} />
+                  </label>
+                  <label className="w-20">
+                    <span className="mb-1 block text-xs text-muted">ตั้งแต่</span>
+                    <input type="number" name="fromPos" min={1} defaultValue={1} className={inputClass} />
+                  </label>
+                  <label className="w-20">
+                    <span className="mb-1 block text-xs text-muted">ถึง</span>
+                    <input type="number" name="toPos" min={1} defaultValue={1} className={inputClass} />
+                  </label>
+                  <label className="w-16">
+                    <span className="mb-1 block text-xs text-muted">สี</span>
+                    <input type="color" name="color" defaultValue="#1d4ed8" className="h-9 w-full rounded-lg border border-line" />
+                  </label>
+                  <SubmitButton>เพิ่มโซน</SubmitButton>
+                </form>
+              </div>
+            </Modal>
+            <ExcelButton href={exportHref("standings", { season: season.slug })}>โหลด Excel ตารางคะแนน</ExcelButton>
+          </div>
+        }
+      >
+        <StandingsTable rows={standings.rows} zones={zones} />
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-2">
           <Card
             title={`ทีมในฤดูกาล (${slots.length})`}
             action={emptySlots > 0 ? <span className="text-xs text-muted">ยังว่าง {emptySlots} ช่อง</span> : undefined}
@@ -282,68 +369,8 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
               </ActionForm>
             )}
           </Card>
-        </div>
       </div>
 
-      <Card title="โซนสีในตารางคะแนน" bodyClassName="px-4 pb-5 sm:px-5">
-        <p className="mb-3 text-sm text-muted">
-          แถบสีด้านซ้ายของตารางคะแนน เช่น โซนเข้ารอบชิง หรือโซนตกชั้น
-        </p>
-
-        <div className="space-y-2">
-          {zones.map((z) => (
-            <form key={z.id} action={saveZoneAction} className="flex flex-wrap items-end gap-2 rounded-lg border border-line p-3">
-              <input type="hidden" name="id" value={z.id} />
-              <input type="hidden" name="seasonId" value={season.id} />
-              <label className="flex-1 min-w-[160px]">
-                <span className="mb-1 block text-xs text-muted">ชื่อโซน</span>
-                <input name="label" defaultValue={z.label} className={inputClass} />
-              </label>
-              <label className="w-20">
-                <span className="mb-1 block text-xs text-muted">ตั้งแต่</span>
-                <input type="number" name="fromPos" min={1} defaultValue={z.fromPos} className={inputClass} />
-              </label>
-              <label className="w-20">
-                <span className="mb-1 block text-xs text-muted">ถึง</span>
-                <input type="number" name="toPos" min={1} defaultValue={z.toPos} className={inputClass} />
-              </label>
-              <label className="w-16">
-                <span className="mb-1 block text-xs text-muted">สี</span>
-                <input type="color" name="color" defaultValue={z.color} className="h-9 w-full rounded-lg border border-line" />
-              </label>
-              <SubmitButton variant="ghost">บันทึก</SubmitButton>
-              <button name="_delete" value="1" className="rounded-lg border border-line px-3 py-2 text-sm text-muted hover:border-loss hover:text-loss">
-                ลบ
-              </button>
-            </form>
-          ))}
-
-          <form action={saveZoneAction} className="flex flex-wrap items-end gap-2 rounded-lg border border-dashed border-line p-3">
-            <input type="hidden" name="seasonId" value={season.id} />
-            <label className="flex-1 min-w-[160px]">
-              <span className="mb-1 block text-xs text-muted">ชื่อโซนใหม่</span>
-              <input name="label" placeholder="เช่น ตกชั้น" className={inputClass} />
-            </label>
-            <label className="w-20">
-              <span className="mb-1 block text-xs text-muted">ตั้งแต่</span>
-              <input type="number" name="fromPos" min={1} defaultValue={1} className={inputClass} />
-            </label>
-            <label className="w-20">
-              <span className="mb-1 block text-xs text-muted">ถึง</span>
-              <input type="number" name="toPos" min={1} defaultValue={1} className={inputClass} />
-            </label>
-            <label className="w-16">
-              <span className="mb-1 block text-xs text-muted">สี</span>
-              <input type="color" name="color" defaultValue="#1d4ed8" className="h-9 w-full rounded-lg border border-line" />
-            </label>
-            <SubmitButton>เพิ่มโซน</SubmitButton>
-          </form>
-        </div>
-      </Card>
-
-      <Card title="สร้างฤดูกาลใหม่" bodyClassName="px-4 pb-5 sm:px-5">
-        <NewSeasonForm />
-      </Card>
     </div>
   );
 }
