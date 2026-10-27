@@ -1,7 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
+import { showFlash } from "@/components/admin/Flash";
 
 type State = { error?: string; ok?: string };
 
@@ -38,24 +40,36 @@ export function SubmitButton({
   );
 }
 
-/** ฟอร์มที่แสดงข้อความสำเร็จ/ผิดพลาดจาก server action ให้เอง */
+/**
+ * ฟอร์มที่แสดงข้อความสำเร็จ/ผิดพลาดจาก server action ให้เอง
+ * successHref: บันทึกสำเร็จแล้วพาไปหน้านี้ (ใช้ออกจากโหมดแก้ไข) แล้วแจ้งผลด้วยป้ายมุมจอแทน
+ */
 export function ActionForm({
   action,
   children,
   className = "",
+  successHref,
 }: {
   action: (prev: State, formData: FormData) => Promise<State>;
   children: React.ReactNode;
   className?: string;
+  successHref?: string;
 }) {
   const [state, formAction] = useActionState(action, {});
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!state.ok || !successHref) return;
+    showFlash(state.ok);
+    router.replace(successHref, { scroll: false });
+  }, [state, successHref, router]);
 
   return (
     <form action={formAction} className={className}>
       {state.error && (
         <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">{state.error}</p>
       )}
-      {state.ok && (
+      {state.ok && !successHref && (
         <p className="mb-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">{state.ok}</p>
       )}
       {children}

@@ -20,7 +20,7 @@ export function StaffForm({
   color2: string | null;
 }) {
   return (
-    <ActionForm action={saveStaffAction} className="space-y-3" key={staff?.id ?? "new"}>
+    <ActionForm action={saveStaffAction} className="space-y-3" key={staff?.id ?? "new"} successHref={staff ? cancelHref : undefined}>
       {staff && <input type="hidden" name="id" value={staff.id} />}
       <input type="hidden" name="teamId" value={teamId} />
 

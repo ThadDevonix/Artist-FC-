@@ -39,7 +39,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/admin/user
           className={editing ? editingCardClass : "scroll-mt-32"}
           bodyClassName="px-4 pb-5 sm:px-5"
         >
-          <ActionForm action={saveUserAction} className="space-y-3" key={editing?.id ?? "new"}>
+          <ActionForm action={saveUserAction} className="space-y-3" key={editing?.id ?? "new"} successHref={editing ? "/admin/users" : undefined}>
             {editing && <input type="hidden" name="id" value={editing.id} />}
 
             <Field label="ชื่อ-สกุล">

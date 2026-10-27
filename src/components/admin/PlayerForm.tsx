@@ -26,7 +26,7 @@ export function PlayerForm({
   cancelHref: string;
 }) {
   return (
-    <ActionForm action={savePlayerAction} className="space-y-3" key={player?.id ?? "new"}>
+    <ActionForm action={savePlayerAction} className="space-y-3" key={player?.id ?? "new"} successHref={player ? cancelHref : undefined}>
       {player && <input type="hidden" name="id" value={player.id} />}
 
       <PlayerPhotoInput name={player?.name ?? ""} currentUrl={player?.photoUrl ?? null} color={color} color2={color2} />

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Flash } from "@/components/admin/Flash";
 import { logoutAction } from "@/server/actions";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Logo } from "@/components/Logo";
@@ -61,6 +62,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       </header>
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-3 py-5 sm:px-6 sm:py-6">{children}</main>
+      <Flash />
     </div>
   );
 }

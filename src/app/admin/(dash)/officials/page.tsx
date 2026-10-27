@@ -40,7 +40,7 @@ export default async function OfficialsPage({ searchParams }: PageProps<"/admin/
           className={editing ? editingCardClass : "scroll-mt-32"}
           bodyClassName="px-4 pb-5 sm:px-5"
         >
-          <ActionForm action={saveOfficialAction} className="space-y-3" key={editing?.id ?? "new"}>
+          <ActionForm action={saveOfficialAction} className="space-y-3" key={editing?.id ?? "new"} successHref={editing ? "/admin/officials" : undefined}>
             {editing && <input type="hidden" name="id" value={editing.id} />}
 
             <PlayerPhotoInput name={editing?.name ?? ""} currentUrl={editing?.photoUrl ?? null} color={NEUTRAL} color2={null} />
