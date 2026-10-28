@@ -1,8 +1,16 @@
 import "server-only";
 import { db } from "@/server/db";
 import { computeStandings, parseTiebreakers, type StandingRow } from "@/lib/standings";
+import { groupLetter } from "@/lib/knockout";
+import { groupTables } from "@/server/bracket";
 
 export type StandingZone = { label: string; color: string; fromPos: number; toPos: number };
+
+/** ตารางของกลุ่มหนึ่ง (ฤดูกาลแบบแบ่งกลุ่ม) */
+export type GroupStanding = { group: number; label: string; rows: StandingRow[]; complete: boolean };
+
+/** แถบสีอัตโนมัติของทีมที่ผ่านเข้ารอบในแต่ละกลุ่ม */
+const QUALIFY_COLOR = "#15803d";
 
 /**
  * ตารางคะแนนของฤดูกาล พร้อมโซนสี
@@ -20,6 +28,7 @@ export type LiveTeamScore = {
   phaseStartedAt: Date | null;
   periods: number;
   periodMinutes: number;
+  extraTimeMinutes: number;
 };
 
 /**
@@ -34,6 +43,8 @@ export async function getStandings(
   rows: StandingRow[];
   zones: StandingZone[];
   live: Record<string, LiveTeamScore>;
+  /** ฤดูกาลแบบแบ่งกลุ่ม: ตารางแยกกลุ่ม (rows = ทุกกลุ่มต่อกัน อันดับนับในกลุ่ม) · ลีก = [] */
+  groups: GroupStanding[];
 }> {
   const [season, seasonTeams, matches, zones] = await Promise.all([
     db.season.findUnique({ where: { id: seasonId } }),
@@ -56,17 +67,28 @@ export async function getStandings(
     db.zone.findMany({ where: { seasonId }, orderBy: { fromPos: "asc" } }),
   ]);
 
-  if (!season) return { rows: [], zones: [], live: {} };
+  if (!season) return { rows: [], zones: [], live: {}, groups: [] };
 
   const live: Record<string, LiveTeamScore> = {};
   for (const m of matches) {
     if (m.status !== "LIVE" || m.homeGoals === null || m.awayGoals === null) continue;
     const clock = {
       livePeriod: m.livePeriod, liveBreak: m.liveBreak, phaseStartedAt: m.phaseStartedAt,
-      periods: season.periods, periodMinutes: season.periodMinutes,
+      periods: season.periods, periodMinutes: season.periodMinutes, extraTimeMinutes: season.extraTimeMinutes,
     };
     live[m.homeTeamId] = { goalsFor: m.homeGoals, goalsAgainst: m.awayGoals, ...clock };
     live[m.awayTeamId] = { goalsFor: m.awayGoals, goalsAgainst: m.homeGoals, ...clock };
+  }
+
+  if (season.format === "CUP") {
+    const tables = await groupTables(db, seasonId, includeLive);
+    const groups = tables.map((t) => ({ ...t, label: `กลุ่ม ${groupLetter(t.group)}` }));
+    return {
+      rows: groups.flatMap((g) => g.rows),
+      zones: [{ label: "ผ่านเข้ารอบน็อคเอาต์", color: QUALIFY_COLOR, fromPos: 1, toPos: season.advancePerGroup }],
+      live,
+      groups,
+    };
   }
 
   const rows = computeStandings(
@@ -92,5 +114,6 @@ export async function getStandings(
     rows,
     zones: zones.map((z) => ({ label: z.label, color: z.color, fromPos: z.fromPos, toPos: z.toPos })),
     live,
+    groups: [],
   };
 }

@@ -5,6 +5,7 @@ import { getStandings } from "@/server/queries/standings";
 import { getPlayerSeasonStats } from "@/server/queries/stats";
 import { MATCH_STATUS_LABEL, POSITION_LABEL, STAFF_ROLES, staffRoleName } from "@/lib/labels";
 import { ageFrom, toThaiDate, toThaiTime } from "@/lib/format";
+import { stageLabel } from "@/lib/knockout";
 
 /**
  * ไฟล์ Excel สำหรับหลังบ้าน — แต่ละชุดข้อมูลเป็น 1 ชีต เลือกโหลดทีละชีตหรือรวมทุกชีตก็ได้
@@ -103,12 +104,15 @@ async function clubsSheet(wb: ExcelJS.Workbook, season: Season, scope: ExportSco
 
 async function standingsSheet(wb: ExcelJS.Workbook, season: Season) {
   // ตารางทางการ — ไม่นับสกอร์ของนัดที่กำลังแข่งอยู่
-  const { rows } = await getStandings(season.id, { includeLive: false });
+  const { rows, groups } = await getStandings(season.id, { includeLive: false });
   const formLabel = { W: "ช", D: "ส", L: "พ" } as const;
+  // แบบแบ่งกลุ่ม: อันดับนับในกลุ่ม จึงต้องมีคอลัมน์กลุ่มกำกับ
+  const groupOf = new Map(groups.flatMap((g) => g.rows.map((r) => [r.team.id, g.label] as const)));
   addSheet(
     wb,
     EXPORT_KINDS.standings,
     [
+      ...(groups.length ? [{ header: "กลุ่ม", key: "group", width: 10 }] : []),
       { header: "อันดับ", key: "position", width: 8 },
       { header: "สโมสร", key: "team", width: 28 },
       { header: "แข่ง", key: "played", width: 7 },
@@ -122,6 +126,7 @@ async function standingsSheet(wb: ExcelJS.Workbook, season: Season) {
       { header: "ฟอร์ม 5 นัดล่าสุด", key: "form", width: 18 },
     ],
     rows.map((r) => ({
+      group: groupOf.get(r.team.id) ?? null,
       position: r.position,
       team: r.team.name,
       played: r.played,
@@ -156,12 +161,14 @@ async function matchesSheet(wb: ExcelJS.Workbook, season: Season, round?: number
     round ? `${EXPORT_KINDS.matches} นัดที่ ${round}` : EXPORT_KINDS.matches,
     [
       { header: "นัดที่", key: "round", width: 7 },
+      { header: "รอบ", key: "stage", width: 22 },
       { header: "วันที่", key: "date", width: 12, date: true },
       { header: "เวลา", key: "time", width: 8 },
       { header: "เจ้าบ้าน", key: "home", width: 24 },
       { header: "ประตูเจ้าบ้าน", key: "homeGoals", width: 12 },
       { header: "ประตูทีมเยือน", key: "awayGoals", width: 12 },
       { header: "ทีมเยือน", key: "away", width: 24 },
+      { header: "จุดโทษ", key: "pens", width: 9 },
       { header: "สนาม", key: "venue", width: 24 },
       { header: "สถานะ", key: "status", width: 12 },
       { header: "ผู้ตัดสิน", key: "referee", width: 20 },
@@ -171,12 +178,14 @@ async function matchesSheet(wb: ExcelJS.Workbook, season: Season, round?: number
     ],
     matches.map((m) => ({
       round: m.round,
+      stage: stageLabel(m),
       date: excelDate(m.kickoffAt),
       time: m.kickoffAt ? toThaiTime(m.kickoffAt) : "รอกำหนด",
       home: m.homeTeam.name,
       homeGoals: m.homeGoals,
       awayGoals: m.awayGoals,
       away: m.awayTeam.name,
+      pens: m.homePens !== null ? `${m.homePens}–${m.awayPens}` : null,
       venue: m.venue,
       status: MATCH_STATUS_LABEL[m.status],
       referee: m.referee?.name ?? null,

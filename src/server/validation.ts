@@ -143,10 +143,17 @@ export const loginSchema = z.object({
   password: required("กรุณากรอกรหัสผ่าน"),
 });
 
+/** ผลยิงจุดโทษ — เฉพาะนัดน็อคเอาต์ที่ประตูรวมเสมอ (ตรวจว่าต้องกรอกไหมที่ server action) */
+const penaltyFields = {
+  homePens: optionalInt.refine((v) => v === null || (v >= 0 && v <= 99), "จุดโทษต้องเป็นจำนวนเต็ม 0–99"),
+  awayPens: optionalInt.refine((v) => v === null || (v >= 0 && v <= 99), "จุดโทษต้องเป็นจำนวนเต็ม 0–99"),
+};
+
 export const matchResultSchema = z.object({
   matchId: required("ไม่พบนัดนี้"),
   homeGoals: requiredInt(0, 99, "สกอร์ต้องเป็นจำนวนเต็ม 0–99"),
   awayGoals: requiredInt(0, 99, "สกอร์ต้องเป็นจำนวนเต็ม 0–99"),
+  ...penaltyFields,
   notes: optionalText,
 });
 
@@ -188,6 +195,12 @@ export const livePhaseSchema = z.object({
 export const matchIdSchema = z.object({
   matchId: required("ไม่พบนัดนี้"),
   reason: optionalText.optional(),
+});
+
+/** ปุ่มจบเกมของโหมดถ่ายทอดสด — สกอร์มาจากเหตุการณ์ ส่งมาแค่ผลจุดโทษ (ถ้ามี) */
+export const finishLiveSchema = z.object({
+  matchId: required("ไม่พบนัดนี้"),
+  ...penaltyFields,
 });
 
 export const eventSchema = z
@@ -263,6 +276,26 @@ export const rosterImportSchema = z.object({
   text: required("ยังไม่มีรายชื่อให้นำเข้า"),
 });
 
+/**
+ * รูปแบบการแข่ง — ใช้ทั้งฟอร์มสร้างฤดูกาลและฟอร์มสร้างตารางใหม่
+ * ลีก: teamCount · แบ่งกลุ่ม: groupCount × groupSize, ผ่านกลุ่มละ advancePerGroup, น็อคเอาต์ knockoutLegs นัด
+ * (ตรวจว่าจัดสายลงตัวไหมที่ cupSummary ใน src/lib/knockout.ts)
+ */
+const formatFields = {
+  format: z
+    .string()
+    .optional()
+    .transform((v) => (v === "CUP" ? "CUP" : "LEAGUE") as "LEAGUE" | "CUP"),
+  teamCount: optionalInt.refine((v) => v === null || (v >= 2 && v <= MAX_TEAMS), `จำนวนทีมต้องอยู่ระหว่าง 2–${MAX_TEAMS}`),
+  groupCount: optionalInt,
+  groupSize: optionalInt,
+  advancePerGroup: optionalInt,
+  knockoutLegs: z
+    .string()
+    .optional()
+    .transform((v) => (v === "2" ? 2 : 1) as 1 | 2),
+};
+
 export const seasonSchema = z.object({
   id: optionalText,
   name: required("กรุณากรอกชื่อฤดูกาล"),
@@ -277,14 +310,19 @@ export const seasonSchema = z.object({
   periodMinutes: optionalInt.refine((v) => v === null || (v >= 5 && v <= 60), "ความยาวแต่ละช่วงต้องอยู่ระหว่าง 5–60 นาที"),
   startDate: optionalDate,
   endDate: optionalDate,
-  // จำนวนทีมในตารางแข่ง — มีเฉพาะฟอร์มสร้างฤดูกาล เว้นว่าง = ยังไม่สร้างตาราง
-  teamCount: optionalInt.refine((v) => v === null || (v >= 2 && v <= MAX_TEAMS), `จำนวนทีมต้องอยู่ระหว่าง 2–${MAX_TEAMS}`),
+  // รูปแบบ + จำนวนทีม — มีเฉพาะฟอร์มสร้างฤดูกาล เว้นว่าง = ยังไม่สร้างตาราง
+  ...formatFields,
+  // เสมอในรอบน็อคเอาต์ — koSettings บอกว่าฟอร์มนี้มีช่องเหล่านี้ (checkbox ที่ไม่ติ๊กจะไม่ถูกส่งมาเลย)
+  koSettings: checkbox,
+  extraTime: checkbox,
+  extraTimeMinutes: optionalInt.refine((v) => v === null || (v >= 1 && v <= 30), "ต่อเวลาช่วงละ 1–30 นาที"),
+  penalties: checkbox,
 });
 
 /** สร้างตารางใหม่จากหน้าฤดูกาล — ยังไม่กำหนดวันเวลา */
 export const fixtureSchema = z.object({
   seasonId: required("ไม่พบฤดูกาล"),
-  teamCount: requiredInt(2, MAX_TEAMS, `จำนวนทีมต้องอยู่ระหว่าง 2–${MAX_TEAMS}`),
+  ...formatFields,
   rounds: z
     .string()
     .optional()

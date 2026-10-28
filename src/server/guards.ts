@@ -31,6 +31,8 @@ type MatchLike = {
   status: MatchStatus;
   homeTeam: { name: string; isPlaceholder: boolean };
   awayTeam: { name: string; isPlaceholder: boolean };
+  /** นัดน็อคเอาต์ — ทีมชั่วคราวจะถูกใส่ทีมจริงเองเมื่อรู้ผลรอบก่อน */
+  koSize?: number | null;
   referee: OfficialRef;
   assistant1: OfficialRef;
   assistant2: OfficialRef;
@@ -56,9 +58,11 @@ export const NOT_YOUR_MATCH = "คุณไม่ได้เป็นผู้�
 export const ALREADY_APPROVED = "นัดนี้อนุมัติแล้ว แก้ไขได้เฉพาะผู้ดูแลระบบ";
 
 /** นัดที่ยังมีช่องทีมว่าง ("ทีม 3") — ยังไม่รู้ว่าเป็นสโมสรไหน จึงยังเริ่มแข่ง/บันทึกผลไม่ได้ */
-export function unfilledSlots(match: Pick<MatchLike, "homeTeam" | "awayTeam">): string | null {
+export function unfilledSlots(match: Pick<MatchLike, "homeTeam" | "awayTeam" | "koSize">): string | null {
   const names = [match.homeTeam, match.awayTeam].filter((t) => t.isPlaceholder).map((t) => t.name);
-  return names.length ? `ยังไม่ได้ใส่สโมสรของ ${names.join(" และ ")} — ใส่ที่หน้าฤดูกาลก่อนจึงจะเริ่มแข่งหรือบันทึกผลได้` : null;
+  if (!names.length) return null;
+  if (match.koSize) return `ยังไม่รู้ทีม ${names.join(" และ ")} — ระบบจะใส่ให้เองเมื่อรอบก่อนหน้าได้ผลครบ`;
+  return `ยังไม่ได้ใส่สโมสรของ ${names.join(" และ ")} — ใส่ที่หน้าฤดูกาลก่อนจึงจะเริ่มแข่งหรือบันทึกผลได้`;
 }
 
 /**

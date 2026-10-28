@@ -6,6 +6,8 @@ import { Card, StatusPill, TeamBadge } from "@/components/ui";
 import { EventIcon, eventLabel } from "@/components/events";
 import { decodeParam, minuteLabel, thaiDateTime } from "@/lib/format";
 import { getMatchDetail } from "@/server/queries";
+import { tieContext } from "@/server/bracket";
+import { stageLabel } from "@/lib/knockout";
 
 export default async function MatchPage({ params }: PageProps<"/matches/[id]">) {
   const id = decodeParam((await params).id);
@@ -20,6 +22,15 @@ export default async function MatchPage({ params }: PageProps<"/matches/[id]">) 
     { label: "ผู้ตัดสินที่ 4", person: match.fourthOfficial },
   ].flatMap((o) => (o.person ? [{ label: o.label, name: o.person.name }] : []));
   const played = match.homeGoals !== null && match.awayGoals !== null;
+  // นัดสองของเหย้า-เยือน: แสดงประตูรวมสองนัด (นัดแรกเจ้าบ้านสลับกัน)
+  const tie = match.leg === 2 ? await tieContext(match.id) : null;
+  const first = tie?.firstLeg?.homeGoals != null && tie.firstLeg.awayGoals != null ? tie.firstLeg : null;
+  const aggregate =
+    first && played
+      ? first.homeTeamId === match.homeTeamId
+        ? [first.homeGoals! + match.homeGoals!, first.awayGoals! + match.awayGoals!]
+        : [first.awayGoals! + match.homeGoals!, first.homeGoals! + match.awayGoals!]
+      : null;
   const countEvents = (teamId: string, types: string[]) =>
     match.events.filter((e) => e.teamId === teamId && types.includes(e.type)).length;
 
@@ -27,7 +38,7 @@ export default async function MatchPage({ params }: PageProps<"/matches/[id]">) 
     <div className="space-y-6">
       <p className="text-sm text-muted">
         <Link href="/fixtures" className="hover:text-ink">การแข่งขัน</Link>
-        {" · "}ฤดูกาล {match.season.name} · นัดที่ {match.round}
+        {" · "}ฤดูกาล {match.season.name} · {stageLabel(match)}
       </p>
 
       <Card bodyClassName="px-4 pb-6 sm:px-6">
@@ -43,6 +54,10 @@ export default async function MatchPage({ params }: PageProps<"/matches/[id]">) 
               ) : (
                 <div className="text-2xl font-semibold text-muted">พบ</div>
               )}
+              {match.homePens !== null && match.awayPens !== null && (
+                <div className="mt-1 text-sm font-medium text-muted tnum">จุดโทษ {match.homePens}–{match.awayPens}</div>
+              )}
+              {aggregate && <div className="mt-1 text-xs text-muted tnum">รวมสองนัด {aggregate[0]}–{aggregate[1]}</div>}
               <div className="mt-2 flex items-center justify-center gap-2">
                 <StatusPill status={match.status} />
                 {match.status === "LIVE" && <LiveClock {...liveClockProps(match)} className="text-sm" />}

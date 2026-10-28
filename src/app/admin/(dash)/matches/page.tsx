@@ -7,16 +7,19 @@ import { RoundPicker } from "@/components/RoundPicker";
 import { SeasonPicker } from "@/components/admin/SeasonPicker";
 import { thaiDateTime } from "@/lib/format";
 import { MATCH_STATUS_LABEL } from "@/lib/labels";
+import { stageLabel } from "@/lib/knockout";
 import { matchStatusEnum, parseEnumParam } from "@/server/validation";
 import type { MatchStatus } from "@/generated/prisma/enums";
 
 export const metadata = { title: "บันทึกผลการแข่งขัน" };
 
 /** ปุ่มของแต่ละนัด — ยังไม่เริ่มแข่ง = เริ่ม (สีส้ม) · เริ่มไปแล้วหรือจบแล้ว = แก้ไข · ยังมีช่องทีมว่าง = รอใส่สโมสร (สีเทา) */
-type Row = { status: string; homeTeam: { isPlaceholder: boolean }; awayTeam: { isPlaceholder: boolean } };
+type Row = { status: string; koSize: number | null; homeTeam: { isPlaceholder: boolean }; awayTeam: { isPlaceholder: boolean } };
 const unfilled = (m: Row) => m.homeTeam.isPlaceholder || m.awayTeam.isPlaceholder;
 const notStarted = (m: Row) => m.status === "SCHEDULED" || m.status === "POSTPONED";
-const actionLabel = (m: Row) => (unfilled(m) ? "รอใส่สโมสร" : notStarted(m) ? "เริ่มการแข่งขัน" : "แก้ไขการแข่งขัน");
+// นัดน็อคเอาต์ที่ยังไม่รู้ทีม — รอผลกลุ่ม/คู่ก่อนหน้า ระบบใส่ทีมให้เอง
+const actionLabel = (m: Row) =>
+  unfilled(m) ? (m.koSize ? "รอผลรอบก่อน" : "รอใส่สโมสร") : notStarted(m) ? "เริ่มการแข่งขัน" : "แก้ไขการแข่งขัน";
 
 /** สถานะที่ให้กรองได้บนหน้านี้ (ไม่รวม CANCELLED ที่ใช้น้อย) */
 const FILTERABLE: MatchStatus[] = ["SCHEDULED", "LIVE", "PENDING", "FINISHED", "POSTPONED"];
@@ -125,7 +128,7 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
                   className="block rounded-2xl border border-line bg-surface p-3 transition active:bg-canvas"
                 >
                   <div className="flex items-center justify-between gap-2 text-xs text-muted">
-                    <span>นัดที่ {m.round} · {thaiDateTime(m.kickoffAt)}</span>
+                    <span>{stageLabel(m)} · {thaiDateTime(m.kickoffAt)}</span>
                     <StatusPill status={m.status} />
                   </div>
 
@@ -142,6 +145,7 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
                       ) : (
                         <span className="text-xs text-muted">พบ</span>
                       )}
+                      {m.homePens !== null && <span className="mt-1 block text-[10px] text-muted tnum">จุดโทษ {m.homePens}–{m.awayPens}</span>}
                     </span>
                     <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium">
                       <TeamBadge name={m.awayTeam.name} logoUrl={m.awayTeam.logoUrl} color={m.awayTeam.color} color2={m.awayTeam.color2} size={22} />
@@ -188,9 +192,11 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
                         <TeamBadge name={m.awayTeam.name} logoUrl={m.awayTeam.logoUrl} color={m.awayTeam.color} color2={m.awayTeam.color2} size={20} />
                         <span className="truncate">{m.awayTeam.shortName}</span>
                       </span>
+                      {(m.group || m.koSize) && <span className="mt-0.5 block text-xs text-muted">{stageLabel(m)}</span>}
                     </td>
                     <td className="py-2.5 text-center tnum font-semibold">
                       {m.homeGoals !== null ? `${m.homeGoals}–${m.awayGoals}` : "—"}
+                      {m.homePens !== null && <span className="block text-[11px] font-normal text-muted">จุดโทษ {m.homePens}–{m.awayPens}</span>}
                     </td>
                     <td className="py-2.5 text-xs text-muted">{thaiDateTime(m.kickoffAt)}</td>
                     <td className="hidden py-2.5 text-xs text-muted lg:table-cell">{m.referee?.name ?? "—"}</td>

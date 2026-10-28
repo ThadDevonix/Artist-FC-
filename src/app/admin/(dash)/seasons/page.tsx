@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { Card, TeamBadge } from "@/components/ui";
 import { ActionForm, Field, SubmitButton, inputClass } from "@/components/admin/Form";
@@ -7,6 +8,8 @@ import { Modal } from "@/components/admin/Modal";
 import { SeasonPicker } from "@/components/admin/SeasonPicker";
 import { ExcelButton, exportHref } from "@/components/admin/ExcelButton";
 import { StandingsTable } from "@/components/StandingsTable";
+import { GroupStandings } from "@/components/GroupStandings";
+import { KnockoutBracket } from "@/components/KnockoutBracket";
 import {
   activateSeasonAction,
   assignSlotAction,
@@ -22,6 +25,7 @@ import {
   getSeasonMatchCounts,
   getStandings,
   listAllTeams,
+  listKnockoutMatches,
   listSeasons,
   listSeasonSlots,
   listSeasonZones,
@@ -29,6 +33,7 @@ import {
 import { MAX_TEAMS } from "@/server/validation";
 import { parseTiebreakers, TIEBREAKER_LABELS, type Tiebreaker } from "@/lib/standings";
 import { PERIOD_OPTIONS } from "@/lib/live-clock";
+import { groupLetter } from "@/lib/knockout";
 
 export const metadata = { title: "ฤดูกาล" };
 
@@ -72,12 +77,14 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
     );
   }
 
-  const [allTeams, slots, zones, counts, standings] = await Promise.all([
+  const cup = season.format === "CUP";
+  const [allTeams, slots, zones, counts, standings, knockout] = await Promise.all([
     listAllTeams(),
     listSeasonSlots(season.id),
     listSeasonZones(season.id),
     getSeasonMatchCounts(season.id),
     getStandings(season.id),
+    cup ? listKnockoutMatches(season.id) : Promise.resolve([]),
   ]);
   const { total: matchCount, locked: lockedCount } = counts;
 
@@ -131,12 +138,20 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
               </Field>
             </div>
 
-            <Field label="รูปแบบการแข่ง">
-              <select name="rounds" defaultValue={season.rounds} className={inputClass}>
-                <option value={1}>เจอกันทีมละครั้ง (พบกันหมดรอบเดียว)</option>
-                <option value={2}>เหย้า–เยือน (พบกันหมดสองรอบ)</option>
-              </select>
-            </Field>
+            {cup ? (
+              <p className="rounded-lg bg-canvas px-3 py-2.5 text-sm">
+                แบ่งกลุ่ม + น็อคเอาต์ · {season.groupCount} กลุ่ม · ผ่านกลุ่มละ {season.advancePerGroup} ทีม ·
+                น็อคเอาต์{season.knockoutLegs === 2 ? "เหย้า–เยือน" : "นัดเดียว"}
+                <span className="block text-xs text-muted">เปลี่ยนรูปแบบได้ที่ &quot;สร้างตารางการแข่งขัน&quot; (ใช้ได้เมื่อยังไม่มีผลแข่ง)</span>
+              </p>
+            ) : (
+              <Field label="รูปแบบการแข่ง">
+                <select name="rounds" defaultValue={season.rounds} className={inputClass}>
+                  <option value={1}>เจอกันทีมละครั้ง (พบกันหมดรอบเดียว)</option>
+                  <option value={2}>เหย้า–เยือน (พบกันหมดสองรอบ)</option>
+                </select>
+              </Field>
+            )}
 
             <div className="grid grid-cols-3 gap-3">
               <Field label="แต้มชนะ">
@@ -151,9 +166,10 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
             </div>
 
             <MatchTimeFields periods={season.periods} periodMinutes={season.periodMinutes} />
+            {cup && <TieBreakFields extraTime={season.extraTime} extraTimeMinutes={season.extraTimeMinutes} penalties={season.penalties} />}
 
             <fieldset>
-              <legend className="mb-1 text-sm font-medium">ลำดับการตัดสินเมื่อคะแนนเท่ากัน</legend>
+              <legend className="mb-1 text-sm font-medium">ลำดับการตัดสินเมื่อคะแนนเท่ากัน{cup ? "ในกลุ่ม" : ""}</legend>
               <p className="mb-2 text-xs text-muted">
                 ติ๊กข้อที่ต้องการใช้ ระบบจะไล่ตามลำดับจากบนลงล่าง
               </p>
@@ -203,7 +219,8 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
         title={<h2 className="shrink-0 whitespace-nowrap text-lg font-semibold">ตารางคะแนน</h2>}
         action={
           <div className="flex flex-wrap justify-end gap-2">
-            <Modal title="โซนสีในตารางคะแนน" triggerClassName={outlineButton} trigger="โซนสี">
+            {/* แบบแบ่งกลุ่มมีแถบ "ผ่านเข้ารอบ" ให้อัตโนมัติตามจำนวนทีมที่ผ่านกลุ่มละ */}
+            {!cup && <Modal title="โซนสีในตารางคะแนน" triggerClassName={outlineButton} trigger="โซนสี">
               <p className="mb-3 text-sm text-muted">
                 แถบสีด้านซ้ายของตารางคะแนน เช่น โซนเข้ารอบชิง หรือโซนตกชั้น
               </p>
@@ -257,13 +274,23 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
                   <SubmitButton>เพิ่มโซน</SubmitButton>
                 </form>
               </div>
-            </Modal>
+            </Modal>}
             <ExcelButton href={exportHref("standings", { season: season.slug })}>โหลด Excel ตารางคะแนน</ExcelButton>
           </div>
         }
       >
-        <StandingsTable rows={standings.rows} zones={zones} />
+        {cup ? (
+          <GroupStandings groups={standings.groups} zones={standings.zones} />
+        ) : (
+          <StandingsTable rows={standings.rows} zones={zones} />
+        )}
       </Card>
+
+      {knockout.length > 0 && (
+        <Card title="รอบน็อคเอาต์" action={<span className="text-xs text-muted">ทีมเข้าสายเองเมื่อกลุ่ม/คู่ก่อนหน้าได้ผลครบ</span>}>
+          <KnockoutBracket matches={knockout} linkBase="/admin/matches" />
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
           <Card
@@ -277,8 +304,12 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
               </p>
             ) : (
               <ul className="space-y-1.5">
-                {slots.map((s) => (
-                  <li key={s.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-canvas">
+                {slots.map((s, i) => (
+                  <Fragment key={s.id}>
+                  {cup && s.group && s.group !== slots[i - 1]?.group && (
+                    <li className="px-2 pt-2 text-xs font-semibold text-muted">กลุ่ม {groupLetter(s.group)}</li>
+                  )}
+                  <li className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-canvas">
                     <span className="w-6 shrink-0 text-right text-xs text-muted tnum">{s.slot ?? "–"}</span>
                     {s.team.isPlaceholder ? (
                       <ActionForm action={assignSlotAction} className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -304,11 +335,12 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
                       </form>
                     )}
                   </li>
+                  </Fragment>
                 ))}
               </ul>
             )}
 
-            {otherClubs.length > 0 && (
+            {otherClubs.length > 0 && (!cup || emptySlots > 0) && (
               <details className="mt-4 border-t border-line pt-4" open={slots.length === 0}>
                 <summary className="cursor-pointer text-sm font-medium">
                   สโมสรอื่น ({otherClubs.length}){emptySlots > 0 && <span className="font-normal text-muted"> · กดเพิ่มแล้วใส่ลงช่องว่างแรก</span>}
@@ -346,7 +378,19 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
               <ActionForm action={generateFixturesAction} className="space-y-3">
                 <input type="hidden" name="seasonId" value={season.id} />
 
-                <FixtureFormat defaultTeams={slots.length || undefined} defaultRounds={season.rounds} max={MAX_TEAMS} required />
+                <FixtureFormat
+                  defaults={{
+                    format: season.format,
+                    teams: slots.length || undefined,
+                    rounds: season.rounds,
+                    groupCount: season.groupCount || undefined,
+                    groupSize: cup && season.groupCount ? Math.ceil(slots.length / season.groupCount) : undefined,
+                    advancePerGroup: season.advancePerGroup,
+                    knockoutLegs: season.knockoutLegs,
+                  }}
+                  max={MAX_TEAMS}
+                  required
+                />
 
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" name="shuffle" className="size-4" />
@@ -401,13 +445,46 @@ function MatchTimeFields({ periods, periodMinutes }: { periods: number; periodMi
   );
 }
 
+/** เสมอในรอบน็อคเอาต์ — ต่อเวลา/ยิงจุดโทษ ปิดไว้ปุ่มก็ไม่ขึ้นตอนถ่ายทอดสด */
+function TieBreakFields({ extraTime, extraTimeMinutes, penalties }: { extraTime: boolean; extraTimeMinutes: number; penalties: boolean }) {
+  return (
+    <fieldset>
+      <input type="hidden" name="koSettings" value="1" />
+      <legend className="mb-1 text-sm font-medium">เสมอในรอบน็อคเอาต์</legend>
+      <div className="space-y-2 rounded-lg border border-line p-3">
+        <label className="flex flex-wrap items-center gap-2 text-sm">
+          <input type="checkbox" name="extraTime" defaultChecked={extraTime} className="size-4" />
+          ต่อเวลาพิเศษ 2 ช่วง ช่วงละ
+          <input
+            type="number"
+            name="extraTimeMinutes"
+            min={1}
+            max={30}
+            defaultValue={extraTimeMinutes}
+            aria-label="ต่อเวลาช่วงละกี่นาที"
+            className={`${inputClass} w-20 py-1`}
+          />
+          นาที
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="penalties" defaultChecked={penalties} className="size-4" />
+          ยิงจุดโทษ (ถ้ายังเสมอ)
+        </label>
+        <p className="text-xs text-muted">
+          ใช้กับนัดตัดสินเท่านั้น (นัดเดียว หรือนัดที่สองของเหย้า–เยือน) · ประตูช่วงต่อเวลานับรวมในสกอร์
+        </p>
+      </div>
+    </fieldset>
+  );
+}
+
 function NewSeasonForm() {
   return (
     <ActionForm action={saveSeasonAction} className="space-y-3">
       <Field label="ชื่อฤดูกาล">
         <input name="name" placeholder="เช่น 2027–28" required className={inputClass} />
       </Field>
-      <FixtureFormat max={MAX_TEAMS} required />
+      <FixtureFormat max={MAX_TEAMS} required cupExtra={<TieBreakFields extraTime={false} extraTimeMinutes={15} penalties />} />
       <MatchTimeFields periods={2} periodMinutes={45} />
       <p className="text-xs text-muted">
         ระบบจะสร้างตารางแข่งให้ครบทุกนัดทันที โดยใช้ชื่อ &quot;ทีม 1, ทีม 2 …&quot; ไว้ก่อน

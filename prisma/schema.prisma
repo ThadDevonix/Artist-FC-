@@ -63,12 +63,20 @@ model Season {
   name      String // "2026–27"
   slug      String   @unique // "2026-27"
   isActive  Boolean  @default(false)
-  rounds    Int      @default(1) // 1 = เจอกันรอบเดียว, 2 = เหย้า-เยือน
+  format    SeasonFormat @default(LEAGUE)
+  rounds    Int      @default(1) // 1 = เจอกันรอบเดียว, 2 = เหย้า-เยือน (ฤดูกาลแบบแบ่งกลุ่ม = ในกลุ่ม)
   pointsWin Int      @default(3)
   pointsDraw Int     @default(1)
   pointsLoss Int     @default(0)
   periods       Int  @default(2) // เกมแบ่งกี่ช่วง: 2 = ครึ่งแรก/ครึ่งหลัง, 4 = 4 ควอเตอร์
   periodMinutes Int  @default(45) @map("halfMinutes") // ช่วงละกี่นาที — ใช้กับนาฬิกาถ่ายทอดสด
+  // แบ่งกลุ่ม + น็อคเอาต์ (format = CUP)
+  groupCount       Int     @default(0) // จำนวนกลุ่ม
+  advancePerGroup  Int     @default(2) // ผ่านเข้ารอบกลุ่มละกี่ทีม
+  knockoutLegs     Int     @default(1) // 1 = นัดเดียว, 2 = เหย้า-เยือน (นัดชิงนัดเดียวเสมอ)
+  extraTime        Boolean @default(false) // เสมอในรอบน็อคเอาต์ → ต่อเวลา 2 ช่วง
+  extraTimeMinutes Int     @default(15) // ต่อเวลาช่วงละกี่นาที
+  penalties        Boolean @default(true) // ยังเสมอ → ยิงจุดโทษ
   // ลำดับการตัดสินเมื่อคะแนนเท่ากัน เก็บเป็น JSON array เช่น ["GOAL_DIFF","GOALS_FOR","HEAD_TO_HEAD","WINS","NAME"]
   tiebreakers String  @default("[\"GOAL_DIFF\",\"GOALS_FOR\",\"HEAD_TO_HEAD\",\"WINS\",\"NAME\"]")
   startDate DateTime?
@@ -128,6 +136,7 @@ model SeasonTeam {
   seasonId String
   teamId   String
   slot     Int? // ช่องที่เท่าไหร่ในตารางแข่ง (1 … จำนวนทีม) — ลำดับที่ใช้จับคู่
+  group    Int? // กลุ่มที่เท่าไหร่ (1 = กลุ่ม A) — เฉพาะฤดูกาลแบบแบ่งกลุ่ม
 
   season Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
@@ -199,6 +208,11 @@ model Player {
 
 // ───────────────────────────── การแข่งขัน ─────────────────────────────
 
+enum SeasonFormat {
+  LEAGUE // ลีกพบกันหมด
+  CUP // แบ่งกลุ่ม แล้วต่อด้วยน็อคเอาต์
+}
+
 enum MatchStatus {
   SCHEDULED // ยังไม่แข่ง
   LIVE // กำลังแข่ง
@@ -219,7 +233,18 @@ model Match {
   status     MatchStatus @default(SCHEDULED)
   homeGoals  Int?
   awayGoals  Int?
+  homePens   Int? // ยิงจุดโทษ — เฉพาะนัดน็อคเอาต์ที่เสมอ
+  awayPens   Int?
   notes      String?
+
+  // ฤดูกาลแบบแบ่งกลุ่ม: นัดในกลุ่มมี group · นัดน็อคเอาต์มี koSize (เหลือกี่ทีม เช่น 8, 4, 2 = ชิง) + koSlot (คู่ที่ในรอบ)
+  // homeSource/awaySource = ทีมมาจากไหน เช่น "G:1:2" (ที่ 2 กลุ่ม A), "W:8:3" (ผู้ชนะคู่ 3 ของรอบ 8 ทีม)
+  group      Int?
+  koSize     Int?
+  koSlot     Int?
+  leg        Int? // เหย้า-เยือน: 1 = นัดแรก, 2 = นัดสอง
+  homeSource String?
+  awaySource String?
 
   // นาฬิกาถ่ายทอดสด — ช่วงที่กำลังแข่ง (1…จำนวนช่วงของฤดูกาล) และเวลาที่ช่วงนั้นเริ่ม
   // liveBreak = พักหลังจบช่วง livePeriod · เวลาเดินคำนวณจากตรงนี้ ไม่ต้องบันทึกทุกวินาที

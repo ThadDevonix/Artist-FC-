@@ -13,6 +13,8 @@ export type LiveClockInput = {
   startedAt: Date | string | null;
   periods: number;
   periodMinutes: number;
+  /** ต่อเวลาช่วงละกี่นาที — ช่วงที่ periods+1, periods+2 คือต่อเวลา (มีเฉพาะนัดน็อคเอาต์ที่เสมอ) */
+  extraMinutes: number;
 };
 
 export type LiveClockReading = {
@@ -30,26 +32,35 @@ export const PERIOD_OPTIONS = [
   { value: 4, label: "4 ควอเตอร์" },
 ] as const;
 
-/** ชื่อช่วง เช่น "ครึ่งแรก", "ควอเตอร์ที่ 3", "ช่วงที่ 2" */
+/** ชื่อช่วง เช่น "ครึ่งแรก", "ควอเตอร์ที่ 3", "ช่วงที่ 2", "ต่อเวลาครึ่งแรก" */
 export function periodName(period: number, periods: number) {
+  if (period > periods) return period === periods + 1 ? "ต่อเวลาครึ่งแรก" : "ต่อเวลาครึ่งหลัง";
   if (periods === 2) return period === 1 ? "ครึ่งแรก" : "ครึ่งหลัง";
   if (periods === 4) return `ควอเตอร์ที่ ${period}`;
   if (periods === 1) return "เกม";
   return `ช่วงที่ ${period}`;
 }
 
-/** ข้อความช่วงพัก เช่น "พักครึ่ง", "พักหลังควอเตอร์ที่ 1" */
+/** ข้อความช่วงพัก เช่น "พักครึ่ง", "พักหลังควอเตอร์ที่ 1", "พักก่อนต่อเวลา" */
 export function breakName(period: number, periods: number) {
+  if (period === periods) return "พักก่อนต่อเวลา";
+  if (period > periods) return "พักครึ่งต่อเวลา";
   return periods === 2 ? "พักครึ่ง" : `พักหลัง${periodName(period, periods)}`;
 }
 
-export function readClock({ period, onBreak, startedAt, periods, periodMinutes }: LiveClockInput, nowMs: number): LiveClockReading {
+/** นาทีที่ช่วงนี้เริ่ม และความยาวช่วง — ช่วงต่อเวลานับต่อจากเวลาปกติทั้งหมด (90 → 91' … 105', 106' … 120') */
+function periodSpan(period: number, periods: number, periodMinutes: number, extraMinutes: number) {
+  if (period <= periods) return { offset: (period - 1) * periodMinutes, length: periodMinutes };
+  return { offset: periods * periodMinutes + (period - periods - 1) * extraMinutes, length: extraMinutes };
+}
+
+export function readClock({ period, onBreak, startedAt, periods, periodMinutes, extraMinutes }: LiveClockInput, nowMs: number): LiveClockReading {
   if (!period || !startedAt) return { label: "", minute: null, extra: null };
   if (onBreak) return { label: breakName(period, periods), minute: null, extra: null };
 
   const played = Math.max(0, Math.floor((nowMs - new Date(startedAt).getTime()) / 60_000)) + 1;
-  const offset = (period - 1) * periodMinutes;
-  const end = offset + periodMinutes;
+  const { offset, length } = periodSpan(period, periods, periodMinutes, extraMinutes);
+  const end = offset + length;
   const minute = offset + played;
 
   if (minute > end) {
@@ -63,10 +74,10 @@ export function readClock({ period, onBreak, startedAt, periods, periodMinutes }
  * เวลาเกมแบบนาฬิกาจับเวลา "MM:SS" — ช่วงถัดไปนับต่อจากความยาวช่วงก่อน ๆ (เช่น 45:00 → 45:01 …)
  * ไม่ตัดที่ทดเวลา (เช่น 47:12) เพื่อให้คนลงข้อมูลเห็นเวลาที่เดินจริง · ช่วงพัก/ไม่ได้แข่ง = null
  */
-export function readStopwatch({ period, onBreak, startedAt, periodMinutes }: LiveClockInput, nowMs: number): string | null {
+export function readStopwatch({ period, onBreak, startedAt, periods, periodMinutes, extraMinutes }: LiveClockInput, nowMs: number): string | null {
   if (!startedAt || !period || onBreak) return null;
   const elapsed = Math.max(0, Math.floor((nowMs - new Date(startedAt).getTime()) / 1000));
-  const total = elapsed + (period - 1) * periodMinutes * 60;
+  const total = elapsed + periodSpan(period, periods, periodMinutes, extraMinutes).offset * 60;
   const mm = String(Math.floor(total / 60)).padStart(2, "0");
   const ss = String(total % 60).padStart(2, "0");
   return `${mm}:${ss}`;
@@ -80,7 +91,7 @@ export function liveClockProps(match: {
   livePeriod: number | null;
   liveBreak: boolean;
   phaseStartedAt: Date | null;
-  season: { periods: number; periodMinutes: number };
+  season: { periods: number; periodMinutes: number; extraTimeMinutes: number };
 }) {
   return {
     period: match.livePeriod,
@@ -88,6 +99,7 @@ export function liveClockProps(match: {
     startedAt: match.phaseStartedAt?.toISOString() ?? null,
     periods: match.season.periods,
     periodMinutes: match.season.periodMinutes,
+    extraMinutes: match.season.extraTimeMinutes,
     serverNow: Date.now(),
   };
 }

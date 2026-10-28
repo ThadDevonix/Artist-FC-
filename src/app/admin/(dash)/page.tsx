@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { stageLabel } from "@/lib/knockout";
 import { Card, StatusPill, TeamBadge } from "@/components/ui";
 import { requireSession } from "@/server/auth";
 import {
@@ -79,7 +80,7 @@ export default async function AdminHome({ searchParams }: PageProps<"/admin">) {
               {pending.map((m) => (
                 <li key={m.id}>
                   <Link href={`/admin/matches/${m.id}`} className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-0 hover:bg-canvas sm:px-5">
-                    <span className="w-14 shrink-0 text-xs text-muted">นัดที่ {m.round}</span>
+                    <span className="w-20 shrink-0 text-xs text-muted">{stageLabel(m)}</span>
                     <span className="flex min-w-0 flex-1 items-center gap-2 text-sm">
                       <TeamBadge name={m.homeTeam.name} logoUrl={m.homeTeam.logoUrl} color={m.homeTeam.color} color2={m.homeTeam.color2} size={20} />
                       <span className="truncate">{m.homeTeam.shortName}</span>
@@ -115,7 +116,7 @@ export default async function AdminHome({ searchParams }: PageProps<"/admin">) {
                     <span className="min-w-0 flex-1 truncate text-sm">
                       {m.homeTeam.shortName} <span className="text-muted">พบ</span> {m.awayTeam.shortName}
                     </span>
-                    <span className="shrink-0 text-xs text-muted">นัดที่ {m.round}</span>
+                    <span className="shrink-0 text-xs text-muted">{stageLabel(m)}</span>
                   </Link>
                 </li>
               ))}

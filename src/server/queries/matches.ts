@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/server/db";
 import { LOCKED_STATUSES, UPCOMING_STATUSES } from "@/lib/labels";
 import type { MatchStatus } from "@/generated/prisma/enums";
+import { roundTitle } from "@/lib/knockout";
 
 /** ฟิลด์ชุดเดียวที่ทุกหน้าใช้แสดงรายการนัด — แก้ที่นี่ที่เดียวแล้วเปลี่ยนทุกหน้า */
 export const matchListSelect = {
@@ -12,10 +13,15 @@ export const matchListSelect = {
   status: true,
   homeGoals: true,
   awayGoals: true,
+  homePens: true,
+  awayPens: true,
+  group: true,
+  koSize: true,
+  leg: true,
   livePeriod: true,
   liveBreak: true,
   phaseStartedAt: true,
-  season: { select: { periods: true, periodMinutes: true } },
+  season: { select: { periods: true, periodMinutes: true, extraTimeMinutes: true } },
   homeTeam: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true, color2: true } },
   awayTeam: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true, color2: true } },
 } as const;
@@ -50,11 +56,25 @@ export async function getRecentAndUpcoming(seasonId: string, take = 5) {
 export async function listRoundOptions(seasonId: string) {
   const rows = await db.match.findMany({
     where: { seasonId },
-    select: { round: true },
+    select: { round: true, koSize: true, leg: true },
     distinct: ["round"],
     orderBy: { round: "asc" },
   });
-  return rows.map((r) => ({ round: r.round, label: `นัดที่ ${r.round}` }));
+  return rows.map((r) => ({ round: r.round, label: roundTitle(r) }));
+}
+
+/** ทุกนัดน็อคเอาต์ของฤดูกาล — ใช้วาดสายการแข่งขัน */
+export async function listKnockoutMatches(seasonId: string) {
+  return db.match.findMany({
+    where: { seasonId, koSize: { not: null } },
+    orderBy: [{ koSize: "desc" }, { koSlot: "asc" }, { leg: "asc" }],
+    select: {
+      ...matchListSelect,
+      koSlot: true,
+      homeTeam: { select: { ...matchListSelect.homeTeam.select, isPlaceholder: true } },
+      awayTeam: { select: { ...matchListSelect.awayTeam.select, isPlaceholder: true } },
+    },
+  });
 }
 
 export async function getTeamMatches(seasonId: string, teamId: string) {
@@ -87,7 +107,7 @@ export async function getMatchDetail(id: string) {
     include: {
       homeTeam: true,
       awayTeam: true,
-      season: { select: { name: true, periods: true, periodMinutes: true } },
+      season: { select: { name: true, slug: true, format: true, periods: true, periodMinutes: true, extraTimeMinutes: true } },
       referee: officialName,
       assistant1: officialName,
       assistant2: officialName,
@@ -111,7 +131,7 @@ export async function getMatchForAdmin(id: string) {
     include: {
       homeTeam: true,
       awayTeam: true,
-      season: { select: { slug: true, isActive: true, periods: true, periodMinutes: true } },
+      season: { select: { slug: true, isActive: true, format: true, periods: true, periodMinutes: true, extraTimeMinutes: true, extraTime: true, penalties: true } },
       // userId ใช้ตัดสินสิทธิ์ (matchPermission) ว่าบัญชีที่ล็อกอินอยู่ในทีมผู้ตัดสินไหม
       referee: officialWithUser,
       assistant1: officialWithUser,

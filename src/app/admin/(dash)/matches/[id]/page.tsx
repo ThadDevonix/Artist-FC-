@@ -7,6 +7,8 @@ import { EventForm } from "@/components/admin/EventForm";
 import { StartLiveButton } from "@/components/admin/StartLiveButton";
 import { LiveClock } from "@/components/LiveClock";
 import { breakName, liveClockProps, periodName } from "@/lib/live-clock";
+import { stageLabel } from "@/lib/knockout";
+import { tieContext } from "@/server/bracket";
 import {
   addEventAction,
   approveMatchAction,
@@ -61,13 +63,28 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
   const { livePeriod } = match;
   const { periods } = match.season;
 
-  const [squads, activeOfficials] = await Promise.all([
+  const [squads, activeOfficials, tie] = await Promise.all([
     listMatchSquads(match.homeTeamId, match.awayTeamId),
     permission.canManage ? listActiveOfficials() : Promise.resolve([]),
+    match.koSize ? tieContext(match.id) : Promise.resolve(null),
   ]);
   // คนที่ถูกตั้งไว้แล้วแต่ภายหลังปิดการทำหน้าที่ ยังต้องอยู่ในตัวเลือก ไม่งั้นบันทึกแล้วช่องจะหาย
   const assigned = [match.referee, match.assistant1, match.assistant2, match.fourthOfficial].filter((o) => o !== null);
   const officials = [...activeOfficials, ...assigned.filter((o) => !activeOfficials.some((a) => a.id === o.id))];
+
+  // น็อคเอาต์: นัดตัดสินที่ประตูรวมเสมอ → ต่อเวลาอีก 2 ช่วง (ถ้าเปิดไว้) แล้วยิงจุดโทษ (ถ้าเปิดไว้)
+  const extraTime = !!(match.season.extraTime && tie?.deciding && ((livePeriod ?? 0) > periods || tie.level));
+  const totalPeriods = periods + (extraTime ? 2 : 0);
+  const needPens = !!(tie?.deciding && tie.level);
+  const stage = stageLabel(match);
+  // นัดสองของเหย้า-เยือน: สกอร์นัดแรกจากมุมเจ้าบ้านนัดนี้ (นัดแรกเจ้าบ้านสลับกัน)
+  const firstLeg = tie?.firstLeg?.homeGoals != null && tie.firstLeg.awayGoals != null ? tie.firstLeg : null;
+  const [legHome, legAway] = firstLeg
+    ? firstLeg.homeTeamId === match.homeTeamId
+      ? [firstLeg.homeGoals!, firstLeg.awayGoals!]
+      : [firstLeg.awayGoals!, firstLeg.homeGoals!]
+    : [0, 0];
+  const firstLegScore = firstLeg ? `${legHome}–${legAway}` : null;
 
   return (
     <div className="space-y-6">
@@ -87,7 +104,7 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
             <TeamBadge name={match.awayTeam.name} code={match.awayTeam.code} logoUrl={match.awayTeam.logoUrl} color={match.awayTeam.color} color2={match.awayTeam.color2} size={40} />
           </div>
           <div className="flex items-center gap-3 text-sm text-muted">
-            <span>นัดที่ {match.round} · {thaiDateTime(match.kickoffAt)}</span>
+            <span>{stage} · {thaiDateTime(match.kickoffAt)}</span>
             <StatusPill status={match.status} />
           </div>
         </div>
@@ -117,7 +134,7 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
                 <input type="hidden" name="matchId" value={match.id} />
                 <StartLiveButton
                   kickoffAt={match.kickoffAt?.toISOString() ?? null}
-                  label={`${match.homeTeam.shortName} พบ ${match.awayTeam.shortName} (นัดที่ ${match.round})`}
+                  label={`${match.homeTeam.shortName} พบ ${match.awayTeam.shortName} (${stage})`}
                 />
               </form>
             </Card>
@@ -133,8 +150,13 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
                 <LiveClock {...clock} variant="stopwatch" className="text-xl" />
               </div>
               <p className="mt-1 text-center text-xs text-muted">
-                {livePeriod && !match.liveBreak && periods > 1 && `${periodName(livePeriod, periods)} · `}
+                {livePeriod && !match.liveBreak && (periods > 1 || livePeriod > periods) && `${periodName(livePeriod, periods)} · `}
                 สกอร์นับจากเหตุการณ์ประตูอัตโนมัติ
+                {firstLegScore && (
+                  <span className="block">
+                    นัดแรก {firstLegScore} · ประตูรวม {legHome + (match.homeGoals ?? 0)}–{legAway + (match.awayGoals ?? 0)}
+                  </span>
+                )}
               </p>
               <div className="my-4 flex items-center justify-center gap-4">
                 <span className="flex min-w-0 flex-1 items-center justify-end gap-2 font-semibold">
@@ -149,8 +171,9 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
                   <span className="truncate">{match.awayTeam.shortName}</span>
                 </span>
               </div>
-              {/* ปุ่มเดียวตามช่วงปัจจุบัน: กำลังแข่ง → พัก · พักอยู่ → เริ่มช่วงถัดไป · ช่วงสุดท้าย → เหลือแค่จบเกม */}
-              {livePeriod && (match.liveBreak || livePeriod < periods) && (
+              {/* ปุ่มเดียวตามช่วงปัจจุบัน: กำลังแข่ง → พัก · พักอยู่ → เริ่มช่วงถัดไป · ช่วงสุดท้าย → เหลือแค่จบเกม
+                  น็อคเอาต์ที่เสมอและเปิดต่อเวลา: จบเวลาปกติแล้วมีปุ่มพักก่อนต่อเวลา → ต่อเวลาครึ่งแรก → ครึ่งหลัง */}
+              {livePeriod && livePeriod < totalPeriods && (
                 <form action={setLivePhaseAction} className="mb-3">
                   <input type="hidden" name="matchId" value={match.id} />
                   <input type="hidden" name="step" value={match.liveBreak ? "NEXT" : "BREAK"} />
@@ -161,6 +184,12 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
               )}
               <ActionForm action={finishLiveAction}>
                 <input type="hidden" name="matchId" value={match.id} />
+                {needPens && match.season.penalties && <PenaltyInputs home={match.homeTeam.shortName} away={match.awayTeam.shortName} required />}
+                {needPens && !match.season.penalties && (
+                  <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                    ประตูรวมเสมอ — รอบน็อคเอาต์ต้องมีผู้ชนะ แต่ฤดูกาลนี้ปิดการยิงจุดโทษไว้
+                  </p>
+                )}
                 <SubmitButton
                   className="w-full"
                   confirm={`จบเกมด้วยสกอร์ ${match.homeGoals ?? 0}–${match.awayGoals ?? 0}? ${admin ? "ผลจะถูกอนุมัติและนับในตารางคะแนนทันที" : "ผลจะถูกส่งให้ผู้ดูแลอนุมัติ"}`}
@@ -205,6 +234,16 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
                     />
                   </div>
                 </div>
+
+                {tie?.deciding && match.season.penalties && (
+                  <PenaltyInputs
+                    home={match.homeTeam.shortName}
+                    away={match.awayTeam.shortName}
+                    defaults={[match.homePens, match.awayPens]}
+                    disabled={locked}
+                    hint={firstLegScore ? `กรอกเมื่อประตูรวมสองนัดเสมอ (นัดแรก ${firstLegScore})` : "กรอกเมื่อเสมอหลังต่อเวลา"}
+                  />
+                )}
 
                 <Field label="หมายเหตุ">
                   <textarea
@@ -367,5 +406,42 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
         </div>
       </div>
     </div>
+  );
+}
+
+/** ช่องผลยิงจุดโทษ — นัดตัดสินของน็อคเอาต์ที่ประตูรวมเสมอ */
+function PenaltyInputs({
+  home,
+  away,
+  defaults = [null, null],
+  required = false,
+  disabled = false,
+  hint,
+}: {
+  home: string;
+  away: string;
+  defaults?: [number | null, number | null];
+  required?: boolean;
+  disabled?: boolean;
+  hint?: string;
+}) {
+  const input =
+    "w-full rounded-lg border border-line bg-surface py-2 text-center text-lg font-bold tnum outline-none focus:border-ink disabled:bg-canvas";
+  return (
+    <fieldset className="mb-3 rounded-xl border border-line p-3">
+      <legend className="px-1 text-sm font-medium">ยิงจุดโทษ</legend>
+      <div className="flex items-end gap-3">
+        <label className="flex-1 text-center">
+          <span className="mb-1 block truncate text-xs text-muted">{home}</span>
+          <input name="homePens" type="number" min={0} max={99} required={required} disabled={disabled} defaultValue={defaults[0] ?? ""} className={input} />
+        </label>
+        <span className="pb-2 text-muted">–</span>
+        <label className="flex-1 text-center">
+          <span className="mb-1 block truncate text-xs text-muted">{away}</span>
+          <input name="awayPens" type="number" min={0} max={99} required={required} disabled={disabled} defaultValue={defaults[1] ?? ""} className={input} />
+        </label>
+      </div>
+      {hint && <p className="mt-2 text-xs text-muted">{hint}</p>}
+    </fieldset>
   );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card, LiveBadge, TeamBadge } from "@/components/ui";
 import { MatchList } from "@/components/MatchList";
 import { StandingsTable } from "@/components/StandingsTable";
+import { GroupStandings } from "@/components/GroupStandings";
 import { liveMovement } from "@/lib/standings";
 import { StatLeadersPanel } from "@/components/StatLeaders";
 import { getActiveSeason, getRecentAndUpcoming, getStandings, listSeasonTeams, listLiveMatches } from "@/server/queries";
@@ -24,7 +25,7 @@ export default async function OverviewPage() {
     );
   }
 
-  const [{ rows, zones, live }, { recent, upcoming }, progress, teams, liveMatches] = await Promise.all([
+  const [{ rows, zones, live, groups }, { recent, upcoming }, progress, teams, liveMatches] = await Promise.all([
     getStandings(season.id),
     getRecentAndUpcoming(season.id, 5),
     getSeasonProgress(season.id),
@@ -39,7 +40,7 @@ export default async function OverviewPage() {
   const goals = rows.reduce((s, r) => s + r.goalsFor, 0);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-6">
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="นัดที่แข่งแล้ว" value={`${progress.playedMatches}/${progress.totalMatches}`} />
@@ -73,7 +74,11 @@ export default async function OverviewPage() {
           }
           bodyClassName="pb-2"
         >
-          <StandingsTable rows={rows.slice(0, 6)} zones={zones} compact live={live} movement={movement} />
+          {groups.length > 0 ? (
+            <GroupStandings groups={groups} zones={zones} live={live} movement={movement} />
+          ) : (
+            <StandingsTable rows={rows.slice(0, 6)} zones={zones} compact live={live} movement={movement} />
+          )}
         </Card>
 
         <div className="grid gap-6 md:grid-cols-2">

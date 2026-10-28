@@ -2,6 +2,7 @@ import Link from "next/link";
 import { StatusPill, TeamBadge } from "@/components/ui";
 import { thaiDayMonth, thaiTime } from "@/lib/format";
 import { liveClockProps } from "@/lib/live-clock";
+import { groupLetter, stageLabel } from "@/lib/knockout";
 import { LiveClock } from "@/components/LiveClock";
 
 export type MatchListItem = {
@@ -12,20 +13,29 @@ export type MatchListItem = {
   status: string;
   homeGoals: number | null;
   awayGoals: number | null;
+  homePens?: number | null;
+  awayPens?: number | null;
+  /** ฤดูกาลแบบแบ่งกลุ่ม: กลุ่มของนัด หรือรอบน็อคเอาต์ */
+  group?: number | null;
+  koSize?: number | null;
+  leg?: number | null;
   homeTeam: { id: string; name: string; shortName: string; slug: string; logoUrl: string | null; color: string; color2: string | null };
   awayTeam: { id: string; name: string; shortName: string; slug: string; logoUrl: string | null; color: string; color2: string | null };
   /** นาฬิกาถ่ายทอดสด (มีเมื่อดึงด้วย matchListSelect) */
   livePeriod?: number | null;
   liveBreak?: boolean;
   phaseStartedAt?: Date | null;
-  season?: { periods: number; periodMinutes: number };
+  season?: { periods: number; periodMinutes: number; extraTimeMinutes: number };
 };
 
 export function MatchRow({ match, showRound = false }: { match: MatchListItem; showRound?: boolean }) {
   const played = match.homeGoals !== null && match.awayGoals !== null;
   const live = match.status === "LIVE";
-  const homeWin = played && match.homeGoals! > match.awayGoals!;
-  const awayWin = played && match.awayGoals! > match.homeGoals!;
+  const pens = match.homePens != null && match.awayPens != null;
+  const homeWin = played && (match.homeGoals! > match.awayGoals! || (match.homeGoals === match.awayGoals && pens && match.homePens! > match.awayPens!));
+  const awayWin = played && (match.awayGoals! > match.homeGoals! || (match.homeGoals === match.awayGoals && pens && match.awayPens! > match.homePens!));
+  // ป้ายของนัด: ดูหลายนัดปนกัน = บอกนัด/รอบเต็ม · ดูทีละนัด = บอกแค่กลุ่ม (รู้นัดจากหัวข้ออยู่แล้ว)
+  const stage = showRound ? stageLabel(match) : match.group ? `กลุ่ม ${groupLetter(match.group)}` : null;
 
   const clock = live && match.season && (
     <LiveClock {...liveClockProps({ livePeriod: match.livePeriod ?? null, liveBreak: match.liveBreak ?? false, phaseStartedAt: match.phaseStartedAt ?? null, season: match.season })} />
@@ -44,7 +54,7 @@ export function MatchRow({ match, showRound = false }: { match: MatchListItem; s
         <span className="truncate">
           {thaiDayMonth(match.kickoffAt)}
           {match.kickoffAt && !live && <span className="tnum"> · {thaiTime(match.kickoffAt)}</span>}
-          {showRound && <span> · นัดที่ {match.round}</span>}
+          {stage && <span> · {stage}</span>}
         </span>
         {notable && (
           <span className="flex shrink-0 items-center gap-1.5">
@@ -65,7 +75,7 @@ export function MatchRow({ match, showRound = false }: { match: MatchListItem; s
           <TeamBadge name={match.homeTeam.name} logoUrl={match.homeTeam.logoUrl} color={match.homeTeam.color} color2={match.homeTeam.color2} size={20} />
         </span>
 
-        <span className="flex w-14 shrink-0 items-center justify-center tnum">
+        <span className="flex w-14 shrink-0 flex-col items-center justify-center tnum">
           {played ? (
             <span className={`rounded-md px-2 py-1 text-sm font-bold ${live ? "bg-red-600 text-white" : "bg-canvas"}`}>
               {match.homeGoals}–{match.awayGoals}
@@ -73,6 +83,7 @@ export function MatchRow({ match, showRound = false }: { match: MatchListItem; s
           ) : (
             <span className="text-xs leading-none text-muted">พบ</span>
           )}
+          {pens && <span className="mt-0.5 text-[10px] leading-none text-muted" title="ยิงจุดโทษ">จุดโทษ {match.homePens}–{match.awayPens}</span>}
         </span>
 
         <span className={`flex min-w-0 flex-1 items-center gap-2 ${awayWin ? "font-semibold" : ""}`}>
@@ -81,8 +92,8 @@ export function MatchRow({ match, showRound = false }: { match: MatchListItem; s
         </span>
       </div>
 
-      <div className="hidden w-28 shrink-0 items-center justify-end gap-2 @lg:flex">
-        {showRound && <span className="text-xs text-muted">นัดที่ {match.round}</span>}
+      <div className="hidden w-36 shrink-0 items-center justify-end gap-2 @lg:flex">
+        {stage && <span className="truncate text-xs text-muted">{stage}</span>}
         {match.status !== "FINISHED" && <StatusPill status={match.status} />}
       </div>
     </Link>

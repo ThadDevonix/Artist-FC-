@@ -21,7 +21,8 @@
     "test:season": "tsx scripts/season-delete-test.ts",
     "test:schedule": "tsx scripts/schedule-test.ts",
     "test:export": "tsx scripts/export-test.ts",
-    "test": "npm run test:logic && npm run test:theme && npm run test:workflow && npm run test:pages && npm run test:responsive && npm run test:login && npm run test:flow && npm run test:roster && npm run test:live && npm run test:season && npm run test:schedule && npm run test:export",
+    "test:cup": "tsx scripts/cup-test.ts",
+    "test": "npm run test:logic && npm run test:theme && npm run test:workflow && npm run test:pages && npm run test:responsive && npm run test:login && npm run test:flow && npm run test:roster && npm run test:live && npm run test:season && npm run test:schedule && npm run test:export && npm run test:cup",
     "postinstall": "prisma generate",
     "test:theme": "tsx scripts/theme-test.ts",
     "test:responsive": "tsx scripts/responsive-test.ts"

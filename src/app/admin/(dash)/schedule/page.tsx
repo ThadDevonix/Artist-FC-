@@ -106,7 +106,7 @@ export default async function SchedulePage({ searchParams }: PageProps<"/admin/s
 
           <RoundPicker rounds={rounds} current={round} path="/admin/schedule" query={query} />
 
-          <Card bodyClassName="px-4 pb-5 sm:px-5" title={`นัดที่ ${round} · ${matches.length} คู่${unset ? ` · ยังไม่มีวัน ${unset} คู่` : ""}`}>
+          <Card bodyClassName="px-4 pb-5 sm:px-5" title={`${rounds.find((r) => r.round === round)?.label ?? `นัดที่ ${round}`} · ${matches.length} คู่${unset ? ` · ยังไม่มีวัน ${unset} คู่` : ""}`}>
             <ActionForm action={saveScheduleAction} className="space-y-4" key={round}>
               <FillAll />
 
@@ -158,7 +158,7 @@ export default async function SchedulePage({ searchParams }: PageProps<"/admin/s
                 })}
               </ul>
 
-              <SubmitButton className="w-full sm:w-auto">บันทึกวันเวลานัดที่ {round}</SubmitButton>
+              <SubmitButton className="w-full sm:w-auto">{`บันทึกวันเวลา${rounds.find((r) => r.round === round)?.label ?? `นัดที่ ${round}`}`}</SubmitButton>
             </ActionForm>
           </Card>
         </>

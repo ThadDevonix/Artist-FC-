@@ -4,8 +4,10 @@ import { db } from "@/server/db";
 import { audit, requireRole, requireSession, type Session } from "@/server/auth";
 import { loadEditableMatch, unfilledSlots } from "@/server/guards";
 import { scoreFromEvents, syncLiveScore } from "@/server/live";
+import { syncBracket, tieContext } from "@/server/bracket";
 import { fromThaiDateTime } from "@/lib/format";
 import {
+  finishLiveSchema,
   matchDetailSchema,
   livePhaseSchema,
   matchIdSchema,
@@ -29,12 +31,12 @@ export async function saveMatchResultAction(
 
   const parsed = parseForm(matchResultSchema, formData);
   if (!parsed.ok) return { error: parsed.error };
-  const { matchId, homeGoals, awayGoals, notes } = parsed.data;
+  const { matchId, homeGoals, awayGoals, homePens, awayPens, notes } = parsed.data;
 
   const access = await loadEditableMatch(session, matchId);
   if (!access.ok) return { error: access.error };
 
-  return recordResult(session, matchId, homeGoals, awayGoals, notes);
+  return recordResult(session, matchId, homeGoals, awayGoals, { homePens, awayPens }, notes);
 }
 
 /** บันทึกผลจริง — ใช้ทั้งฟอร์มกรอกสกอร์และปุ่ม "จบเกม" ของโหมดถ่ายทอดสด */
@@ -43,16 +45,31 @@ async function recordResult(
   matchId: string,
   homeGoals: number,
   awayGoals: number,
+  penaltyInput: { homePens: number | null; awayPens: number | null },
   notes?: string | null,
 ): Promise<ActionState> {
   const isAdmin = session.role === "ADMIN";
   const now = new Date();
 
-  await db.match.update({
+  // น็อคเอาต์: นัดตัดสินที่ประตูรวมเสมอต้องมีผลจุดโทษ · นัดอื่นไม่เก็บจุดโทษ
+  const tie = await tieContext(matchId, { homeGoals, awayGoals });
+  let pens: { homePens: number | null; awayPens: number | null } = { homePens: null, awayPens: null };
+  if (tie?.deciding && tie.level) {
+    if (!tie.penalties) {
+      return { error: "รอบน็อคเอาต์ต้องมีผู้ชนะ — ประตูรวมเสมอกัน แต่ฤดูกาลนี้ปิดการยิงจุดโทษไว้ (เปิดได้ที่ตั้งค่าฤดูกาล)" };
+    }
+    const { homePens, awayPens } = penaltyInput;
+    if (homePens === null || awayPens === null) return { error: "ประตูรวมเสมอกัน — กรอกผลยิงจุดโทษด้วย" };
+    if (homePens === awayPens) return { error: "ผลยิงจุดโทษต้องมีผู้ชนะ" };
+    pens = { homePens, awayPens };
+  }
+
+  const saved = await db.match.update({
     where: { id: matchId },
     data: {
       homeGoals,
       awayGoals,
+      ...pens,
       ...(notes !== undefined ? { notes } : {}),
       status: isAdmin ? "FINISHED" : "PENDING",
       livePeriod: null,
@@ -66,12 +83,13 @@ async function recordResult(
     },
   });
 
+  await syncBracket(saved.seasonId);
   await audit(
     session.userId,
     isAdmin ? "MATCH_SAVE_APPROVED" : "MATCH_SUBMIT",
     "Match",
     matchId,
-    { homeGoals, awayGoals },
+    { homeGoals, awayGoals, ...(pens.homePens !== null ? pens : {}) },
   );
 
   refreshAll();
@@ -115,15 +133,21 @@ export async function setLivePhaseAction(formData: FormData) {
   const { livePeriod, liveBreak } = access.match;
   if (!livePeriod) return;
 
-  const season = await db.season.findUnique({ where: { id: access.match.seasonId }, select: { periods: true } });
+  const season = await db.season.findUnique({ where: { id: access.match.seasonId }, select: { periods: true, extraTime: true } });
   const periods = season?.periods ?? 2;
+  // ต่อเวลาอีก 2 ช่วง: นัดตัดสินของน็อคเอาต์ที่ฤดูกาลเปิดต่อเวลา และจบเวลาปกติด้วยประตูรวมเสมอ (หรือต่อเวลาไปแล้ว)
+  let total = periods;
+  if (season?.extraTime) {
+    const tie = await tieContext(access.match.id);
+    if (tie?.deciding && (livePeriod > periods || tie.level)) total = periods + 2;
+  }
 
   let data: { livePeriod: number; liveBreak: boolean };
   if (parsed.data.step === "BREAK") {
-    if (liveBreak || livePeriod >= periods) return;
+    if (liveBreak || livePeriod >= total) return;
     data = { livePeriod, liveBreak: true };
   } else {
-    if (!liveBreak) return;
+    if (!liveBreak || livePeriod >= total) return;
     data = { livePeriod: livePeriod + 1, liveBreak: false };
   }
 
@@ -141,7 +165,7 @@ export async function setLivePhaseAction(formData: FormData) {
  */
 export async function finishLiveAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireSession();
-  const parsed = parseForm(matchIdSchema, formData);
+  const parsed = parseForm(finishLiveSchema, formData);
   if (!parsed.ok) return { error: parsed.error };
 
   const access = await loadEditableMatch(session, parsed.data.matchId);
@@ -150,7 +174,8 @@ export async function finishLiveAction(_prev: ActionState, formData: FormData): 
 
   const score = await scoreFromEvents(access.match.id);
   if (!score) return { error: "ไม่พบนัดนี้" };
-  return recordResult(session, access.match.id, score.homeGoals, score.awayGoals);
+  const { homePens, awayPens } = parsed.data;
+  return recordResult(session, access.match.id, score.homeGoals, score.awayGoals, { homePens, awayPens });
 }
 
 export async function approveMatchAction(formData: FormData) {
@@ -165,6 +190,7 @@ export async function approveMatchAction(formData: FormData) {
     where: { id: match.id },
     data: { status: "FINISHED", approvedById: session.userId, approvedAt: new Date() },
   });
+  await syncBracket(match.seasonId);
   await audit(session.userId, "MATCH_APPROVE", "Match", match.id);
   refreshAll();
 }
@@ -175,18 +201,21 @@ export async function rejectMatchAction(formData: FormData) {
   const parsed = parseForm(matchIdSchema, formData);
   if (!parsed.ok) return;
 
-  await db.match.update({
+  const rejected = await db.match.update({
     where: { id: parsed.data.matchId },
     data: {
       status: "SCHEDULED",
       homeGoals: null,
       awayGoals: null,
+      homePens: null,
+      awayPens: null,
       approvedById: null,
       approvedAt: null,
       submittedById: null,
       submittedAt: null,
     },
   });
+  await syncBracket(rejected.seasonId);
   await audit(session.userId, "MATCH_REJECT", "Match", parsed.data.matchId, {
     reason: parsed.data.reason ?? null,
   });
@@ -202,7 +231,7 @@ export async function updateMatchAction(_prev: ActionState, formData: FormData):
 
   const before = await db.match.findUnique({
     where: { id: matchId },
-    select: { status: true, homeTeam: { select: { name: true, isPlaceholder: true } }, awayTeam: { select: { name: true, isPlaceholder: true } } },
+    select: { status: true, koSize: true, homeTeam: { select: { name: true, isPlaceholder: true } }, awayTeam: { select: { name: true, isPlaceholder: true } } },
   });
   if (!before) return { error: "ไม่พบนัดนี้" };
   // ตั้งสถานะเป็นกำลังแข่ง/รออนุมัติ/จบแล้ว ต้องรู้ก่อนว่าทั้งสองฝั่งเป็นสโมสรไหน
@@ -211,7 +240,7 @@ export async function updateMatchAction(_prev: ActionState, formData: FormData):
   // เลิกถ่ายทอด (กลับไปยังไม่แข่ง/เลื่อน/ยกเลิก) ต้องล้างสกอร์สด ไม่งั้นหน้าเว็บจะโชว์สกอร์ของเกมที่ยังไม่ได้แข่ง
   const leftLive = before.status === "LIVE" && status && ["SCHEDULED", "POSTPONED", "CANCELLED"].includes(status);
 
-  await db.match.update({
+  const updated = await db.match.update({
     where: { id: matchId },
     data: {
       ...(kickoffAt ? { kickoffAt } : {}),
@@ -221,12 +250,13 @@ export async function updateMatchAction(_prev: ActionState, formData: FormData):
       assistant2Id,
       fourthOfficialId,
       ...(status ? { status } : {}),
-      ...(leftLive ? { homeGoals: null, awayGoals: null, livePeriod: null, liveBreak: false, phaseStartedAt: null } : {}),
+      ...(leftLive ? { homeGoals: null, awayGoals: null, homePens: null, awayPens: null, livePeriod: null, liveBreak: false, phaseStartedAt: null } : {}),
       // ตั้งเป็น "กำลังแข่ง" จากฟอร์มนี้โดยตรง (ไม่ผ่านปุ่มเริ่มถ่ายทอด) → เริ่มนาฬิกาช่วงแรกให้
       ...(status === "LIVE" && before.status !== "LIVE" ? { livePeriod: 1, liveBreak: false, phaseStartedAt: new Date() } : {}),
     },
   });
   await syncLiveScore(matchId);
+  await syncBracket(updated.seasonId);
   await audit(session.userId, "MATCH_UPDATE", "Match", matchId);
   refreshAll();
   return { ok: "บันทึกรายละเอียดนัดแล้ว" };

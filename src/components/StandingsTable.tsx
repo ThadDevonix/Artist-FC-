@@ -119,7 +119,7 @@ export function StandingsTable({
                             livePeriod: playing.livePeriod,
                             liveBreak: playing.liveBreak,
                             phaseStartedAt: playing.phaseStartedAt,
-                            season: { periods: playing.periods, periodMinutes: playing.periodMinutes },
+                            season: { periods: playing.periods, periodMinutes: playing.periodMinutes, extraTimeMinutes: playing.extraTimeMinutes },
                           })}
                           className="text-[11px]"
                         />

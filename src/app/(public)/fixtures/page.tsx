@@ -89,7 +89,7 @@ export default async function FixturesPage({ searchParams }: PageProps<"/fixture
           {[...grouped.entries()].map(([r, list]) => (
             <Card
               key={r}
-              title={`นัดที่ ${r}`}
+              title={rounds.find((x) => x.round === r)?.label ?? `นัดที่ ${r}`}
               action={
                 <span className="text-sm text-muted">{thaiDate(list[0].kickoffAt)}</span>
               }

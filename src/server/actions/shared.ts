@@ -13,13 +13,13 @@ export function refreshAll() {
   revalidatePath("/", "layout");
 }
 
-/** สร้าง slug จากชื่อ — รองรับภาษาไทย (เก็บตัวอักษรและตัวเลขทุกภาษา) */
+/** สร้าง slug จากชื่อ — รองรับภาษาไทย (เก็บตัวอักษร สระ/วรรณยุกต์ และตัวเลขทุกภาษา) */
 export function slugify(input: string) {
   return (
     input
       .toLowerCase()
       .trim()
-      .replace(/[^\p{L}\p{N}]+/gu, "-")
+      .replace(/[^\p{L}\p{M}\p{N}]+/gu, "-")
       .replace(/^-+|-+$/g, "") || `item-${Date.now()}`
   );
 }

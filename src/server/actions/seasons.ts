@@ -6,7 +6,9 @@ import type { MatchStatus } from "@/generated/prisma/enums";
 import { db } from "@/server/db";
 import { audit, requireRole } from "@/server/auth";
 import { teamHasResults } from "@/server/guards";
+import { koPlaceholder, koPlaceholderPrefix, syncBracket } from "@/server/bracket";
 import { fixtureSummary, generateRoundRobin, scheduleRounds } from "@/lib/fixtures";
+import { cupSummary, groupLetter, knockoutFixtures } from "@/lib/knockout";
 import { LOCKED_STATUSES } from "@/lib/labels";
 import { fromThaiDateTime, toThaiDate } from "@/lib/format";
 import {
@@ -14,6 +16,7 @@ import {
   autoScheduleSchema,
   fixtureSchema,
   idSchema,
+  MAX_TEAMS,
   parseForm,
   seasonDeleteSchema,
   seasonSchema,
@@ -31,20 +34,23 @@ export async function saveSeasonAction(
 
   const parsed = parseForm(seasonSchema, formData);
   if (!parsed.ok) return { error: parsed.error };
-  const { id, name, rounds, pointsWin, pointsDraw, pointsLoss, periods, periodMinutes, startDate, endDate, teamCount } = parsed.data;
+  const { id, name, rounds, pointsWin, pointsDraw, pointsLoss, periods, periodMinutes, startDate, endDate } = parsed.data;
+  const { koSettings, extraTime, extraTimeMinutes, penalties } = parsed.data;
 
   // checkbox หลายช่องชื่อเดียวกัน — zod อ่านได้ทีละค่า จึงดึงตรงจาก FormData
   const tiebreakers = formData.getAll("tiebreakers").filter((v): v is string => typeof v === "string");
 
   const data = {
     name,
-    rounds,
+    // ฤดูกาลแบบแบ่งกลุ่ม: นัดเดียว/เหย้า-เยือนในกลุ่มเป็นโครงตาราง เปลี่ยนได้ตอนสร้างตารางใหม่เท่านั้น
+    ...(formData.has("rounds") ? { rounds } : {}),
     pointsWin: pointsWin ?? 3,
     pointsDraw: pointsDraw ?? 1,
     pointsLoss: pointsLoss ?? 0,
     // เว้นว่าง → ไม่ส่งไปเลย ให้ใช้ค่าเดิม/ค่าตั้งต้นของฐานข้อมูล (2 ครึ่ง × 45 นาที)
     ...(periods !== null ? { periods } : {}),
     ...(periodMinutes !== null ? { periodMinutes } : {}),
+    ...(koSettings ? { extraTime, penalties, ...(extraTimeMinutes !== null ? { extraTimeMinutes } : {}) } : {}),
     startDate,
     endDate,
     ...(tiebreakers.length ? { tiebreakers: JSON.stringify(tiebreakers) } : {}),
@@ -57,23 +63,74 @@ export async function saveSeasonAction(
     return { ok: "บันทึกการตั้งค่าฤดูกาลแล้ว" };
   }
 
+  // ลีกเว้นจำนวนทีมได้ (สร้างตารางทีหลัง) · แบบแบ่งกลุ่มต้องกำหนดกลุ่มตั้งแต่แรก
+  const plan = fixturePlan(parsed.data, { required: parsed.data.format === "CUP" });
+  if ("error" in plan) return { error: plan.error };
+
   const slug = await uniqueSlug(slugify(name), seasonSlugTaken);
   // ใส่จำนวนทีมมาด้วย → สร้างช่อง "ทีม 1 … ทีม N" แล้วจับคู่ตารางทั้งฤดูกาลเลย (วันเวลาตั้งทีหลัง)
   const season = await db.$transaction(
     async (tx) => {
-      const created = await tx.season.create({ data: { ...data, slug } });
-      if (teamCount) {
-        await addSlots(tx, created.id, range(1, teamCount));
-        await buildFixtures(tx, created.id, rounds as 1 | 2, false);
+      const created = await tx.season.create({ data: { ...data, slug, format: parsed.data.format } });
+      if (plan.teamCount) {
+        await addSlots(tx, created.id, range(1, plan.teamCount));
+        await buildFixtures(tx, created.id, plan, false);
       }
       return created;
     },
     { timeout: 30_000 },
   );
-  await audit(session.userId, "SEASON_CREATE", "Season", season.id, { name, teamCount });
+  await audit(session.userId, "SEASON_CREATE", "Season", season.id, { name, teamCount: plan.teamCount, format: parsed.data.format });
 
   refreshAll();
   redirect(`/admin/seasons?season=${encodeURIComponent(season.slug)}`);
+}
+
+// ───────────────────────────── รูปแบบการแข่ง ─────────────────────────────
+
+/** วิธีจับคู่ตาราง — ลีกพบกันหมด หรือแบ่งกลุ่มแล้วต่อน็อคเอาต์ */
+type FixturePlan =
+  | { format: "LEAGUE"; teamCount: number | null; rounds: 1 | 2 }
+  | {
+      format: "CUP";
+      teamCount: number;
+      rounds: 1 | 2;
+      groupCount: number;
+      groupSize: number;
+      advancePerGroup: number;
+      knockoutLegs: 1 | 2;
+    };
+
+/** อ่านรูปแบบจากฟอร์ม — required = ต้องมีจำนวนทีม (ฟอร์มสร้างตารางใหม่ / ฤดูกาลแบบแบ่งกลุ่ม) */
+function fixturePlan(
+  d: {
+    format: "LEAGUE" | "CUP";
+    rounds: number;
+    teamCount: number | null;
+    groupCount: number | null;
+    groupSize: number | null;
+    advancePerGroup: number | null;
+    knockoutLegs: 1 | 2;
+  },
+  { required }: { required: boolean },
+): FixturePlan | { error: string } {
+  const rounds = (d.rounds === 2 ? 2 : 1) as 1 | 2;
+  if (d.format === "LEAGUE") {
+    if (required && !d.teamCount) return { error: "กรุณากรอกจำนวนทีม" };
+    return { format: "LEAGUE", teamCount: d.teamCount, rounds };
+  }
+  if (!d.groupCount || !d.groupSize) return { error: "กรุณากรอกจำนวนกลุ่มและจำนวนทีมต่อกลุ่ม" };
+  const config = {
+    groupCount: d.groupCount,
+    groupSize: d.groupSize,
+    advancePerGroup: d.advancePerGroup ?? 2,
+    rounds,
+    knockoutLegs: d.knockoutLegs,
+  };
+  const summary = cupSummary(config);
+  if (!summary.ok) return { error: summary.error };
+  if (summary.teams > MAX_TEAMS) return { error: `รวมแล้ว ${summary.teams} ทีม — ได้ไม่เกิน ${MAX_TEAMS} ทีม` };
+  return { format: "CUP", teamCount: summary.teams, ...config };
 }
 
 // ───────────────────────────── ช่องทีม (ทีม 1 … ทีม N) ─────────────────────────────
@@ -144,33 +201,110 @@ async function renumberSlots(tx: Tx, seasonId: string) {
   return entries.length;
 }
 
+/**
+ * ตั้งชื่อช่องว่างให้ตรงรูปแบบ — ลีก "ทีม 3" · แบ่งกลุ่ม "ทีม B2" (ทีมที่ 2 ของกลุ่ม B)
+ * สโมสรจริงไม่ถูกเปลี่ยนชื่อ
+ */
+async function renameSlots(tx: Tx, seasonId: string) {
+  const season = await tx.season.findUniqueOrThrow({ where: { id: seasonId }, select: { format: true } });
+  const entries = await tx.seasonTeam.findMany({
+    where: { seasonId },
+    orderBy: [{ slot: "asc" }, { id: "asc" }],
+    select: { slot: true, group: true, team: { select: { id: true, isPlaceholder: true } } },
+  });
+  const seen = new Map<number, number>();
+  for (const e of entries) {
+    const inGroup = (seen.get(e.group ?? 0) ?? 0) + 1;
+    seen.set(e.group ?? 0, inGroup);
+    if (!e.team.isPlaceholder) continue;
+    const label = season.format === "CUP" && e.group ? `${groupLetter(e.group)}${inGroup}` : `${e.slot}`;
+    await tx.team.update({
+      where: { id: e.team.id },
+      data: { name: `ทีม ${label}`, shortName: `ทีม ${label}`, code: season.format === "CUP" ? label : `T${label}` },
+    });
+  }
+}
+
 /** จับคู่ตารางใหม่จากทีมในฤดูกาลตามลำดับช่อง — ยังไม่กำหนดวันเวลา */
-async function buildFixtures(tx: Tx, seasonId: string, rounds: 1 | 2, shuffle: boolean) {
+async function buildFixtures(tx: Tx, seasonId: string, plan: FixturePlan, shuffle: boolean) {
   const entries = await tx.seasonTeam.findMany({
     where: { seasonId },
     orderBy: [{ slot: "asc" }, { id: "asc" }],
     include: { team: { select: { venue: true } } },
   });
-  const pairs = generateRoundRobin(
-    entries.map((e) => e.teamId),
-    { rounds, ...(shuffle ? { shuffleSeed: Date.now() % 100000 } : {}) },
-  );
   const venues = new Map(entries.map((e) => [e.teamId, e.team.venue]));
+  const seed = shuffle ? { shuffleSeed: Date.now() % 100000 } : {};
 
+  // นัดเดิมที่ยังไม่แข่ง + ทีมชั่วคราวในสายน็อคเอาต์เดิม (เช่น "ที่ 1 กลุ่ม A") ทิ้งทั้งหมดแล้วสร้างใหม่
   await tx.match.deleteMany({ where: { seasonId, status: { in: UNPLAYED } } });
+  await tx.team.deleteMany({ where: { slug: { startsWith: koPlaceholderPrefix(seasonId) }, isPlaceholder: true } });
+
+  const row = (p: { round: number; homeTeamId: string; awayTeamId: string }) => ({
+    seasonId,
+    round: p.round,
+    homeTeamId: p.homeTeamId,
+    awayTeamId: p.awayTeamId,
+    kickoffAt: null,
+    venue: venues.get(p.homeTeamId) ?? null,
+    status: "SCHEDULED" as const,
+  });
+
+  if (plan.format === "LEAGUE") {
+    const pairs = generateRoundRobin(entries.map((e) => e.teamId), { rounds: plan.rounds, ...seed });
+    await tx.seasonTeam.updateMany({ where: { seasonId }, data: { group: null } });
+    await renameSlots(tx, seasonId);
+    await tx.match.createMany({ data: pairs.map(row) });
+    await tx.season.update({ where: { id: seasonId }, data: { format: "LEAGUE", rounds: plan.rounds, groupCount: 0 } });
+    return pairs.length;
+  }
+
+  // แบ่งกลุ่มตามลำดับช่อง: ช่อง 1–4 กลุ่ม A, 5–8 กลุ่ม B … (สุ่มแล้วก็ยังแบ่งแบบนี้ แต่ลำดับจับคู่ในกลุ่มสุ่ม)
+  for (const [i, e] of entries.entries()) {
+    await tx.seasonTeam.update({ where: { id: e.id }, data: { group: Math.floor(i / plan.groupSize) + 1 } });
+  }
+  await renameSlots(tx, seasonId);
+
+  const groupMatches = [];
+  for (let g = 1; g <= plan.groupCount; g++) {
+    const ids = entries.slice((g - 1) * plan.groupSize, g * plan.groupSize).map((e) => e.teamId);
+    groupMatches.push(...generateRoundRobin(ids, { rounds: plan.rounds, ...seed }).map((p) => ({ ...row(p), group: g })));
+  }
+  await tx.match.createMany({ data: groupMatches });
+
+  // สายน็อคเอาต์ทั้งหมด สร้างไว้ก่อนด้วยทีมชั่วคราว แล้วค่อยใส่ทีมจริงเมื่อรู้ผล (syncBracket)
+  const lastGroupRound = Math.max(...groupMatches.map((m) => m.round));
+  const ko = knockoutFixtures(plan, lastGroupRound + 1);
+  const placeholders = new Map<string, string>();
+  for (const source of new Set(ko.flatMap((f) => [f.homeSource, f.awaySource]))) {
+    placeholders.set(source, await koPlaceholder(tx, seasonId, source));
+  }
   await tx.match.createMany({
-    data: pairs.map((p) => ({
+    data: ko.map((f) => ({
       seasonId,
-      round: p.round,
-      homeTeamId: p.homeTeamId,
-      awayTeamId: p.awayTeamId,
+      round: f.round,
+      koSize: f.koSize,
+      koSlot: f.koSlot,
+      leg: f.leg,
+      homeSource: f.homeSource,
+      awaySource: f.awaySource,
+      homeTeamId: placeholders.get(f.homeSource)!,
+      awayTeamId: placeholders.get(f.awaySource)!,
       kickoffAt: null,
-      venue: venues.get(p.homeTeamId) ?? null,
       status: "SCHEDULED" as const,
     })),
   });
-  await tx.season.update({ where: { id: seasonId }, data: { rounds } });
-  return pairs.length;
+
+  await tx.season.update({
+    where: { id: seasonId },
+    data: {
+      format: "CUP",
+      rounds: plan.rounds,
+      groupCount: plan.groupCount,
+      advancePerGroup: plan.advancePerGroup,
+      knockoutLegs: plan.knockoutLegs,
+    },
+  });
+  return groupMatches.length + ko.length;
 }
 
 /**
@@ -198,6 +332,7 @@ export async function deleteSeasonAction(_prev: ActionState, formData: FormData)
   });
   await db.season.delete({ where: { id: season.id } });
   await db.team.deleteMany({ where: { id: { in: slots.map((s) => s.teamId) }, isPlaceholder: true } });
+  await db.team.deleteMany({ where: { slug: { startsWith: koPlaceholderPrefix(season.id) }, isPlaceholder: true } });
   await audit(session.userId, "SEASON_DELETE", "Season", season.id, { name: season.name, results });
   refreshAll();
   redirect("/admin/seasons");
@@ -244,6 +379,7 @@ export async function toggleSeasonTeamAction(formData: FormData) {
       const slot = existing.slot ?? (await renumberSlots(tx, seasonId));
       const placeholderId = await addSlotTeam(tx, existing.id, slot);
       await moveFixtures(tx, seasonId, teamId, placeholderId);
+      await renameSlots(tx, seasonId);
     });
   } else {
     const team = await db.team.findUnique({ where: { id: teamId }, select: { isPlaceholder: true } });
@@ -252,6 +388,9 @@ export async function toggleSeasonTeamAction(formData: FormData) {
       where: { seasonId, team: { isPlaceholder: true } },
       orderBy: { slot: "asc" },
     });
+    // แบบแบ่งกลุ่ม: ทีมต้องลงช่องในกลุ่มเท่านั้น เต็มแล้วเพิ่มไม่ได้ (ต้องสร้างตารางใหม่ให้มีช่องเพิ่ม)
+    const season = await db.season.findUnique({ where: { id: seasonId }, select: { format: true } });
+    if (!free && season?.format === "CUP") return;
     await db.$transaction(async (tx) => {
       if (free) return fillSlot(tx, free, teamId);
       const last = await tx.seasonTeam.aggregate({ where: { seasonId }, _max: { slot: true } });
@@ -259,6 +398,7 @@ export async function toggleSeasonTeamAction(formData: FormData) {
     });
   }
 
+  await syncBracket(seasonId);
   await audit(session.userId, "SEASON_TEAM_TOGGLE", "Season", seasonId, { teamId });
   refreshAll();
 }
@@ -297,6 +437,7 @@ export async function assignSlotAction(_prev: ActionState, formData: FormData): 
   if (taken) return { error: `${team.name} อยู่ในฤดูกาลนี้แล้ว` };
 
   await db.$transaction((tx) => fillSlot(tx, entry, teamId));
+  await syncBracket(entry.seasonId);
   await audit(session.userId, "SEASON_SLOT_ASSIGN", "Season", entry.seasonId, { slot: entry.slot, teamId });
   refreshAll();
   return { ok: `${entry.team.name} → ${team.name} แล้ว` };
@@ -315,7 +456,10 @@ export async function generateFixturesAction(
 
   const parsed = parseForm(fixtureSchema, formData);
   if (!parsed.ok) return { error: parsed.error };
-  const { seasonId, teamCount, rounds, shuffle } = parsed.data;
+  const { seasonId, shuffle } = parsed.data;
+  const plan = fixturePlan(parsed.data, { required: true });
+  if ("error" in plan) return { error: plan.error };
+  const teamCount = plan.teamCount!;
 
   const season = await db.season.findUnique({
     where: { id: seasonId },
@@ -347,14 +491,17 @@ export async function generateFixturesAction(
       }
       const count = await renumberSlots(tx, seasonId);
       await addSlots(tx, seasonId, range(count + 1, teamCount));
-      return buildFixtures(tx, seasonId, rounds, shuffle);
+      return buildFixtures(tx, seasonId, plan, shuffle);
     },
     { timeout: 30_000 },
   );
 
-  await audit(session.userId, "FIXTURES_GENERATE", "Season", seasonId, { matches: total, rounds, teamCount });
+  await audit(session.userId, "FIXTURES_GENERATE", "Season", seasonId, { matches: total, rounds: plan.rounds, teamCount, format: plan.format });
   refreshAll();
-  const { totalRounds } = fixtureSummary(teamCount, rounds);
+  if (plan.format === "CUP") {
+    return { ok: `สร้างตารางแล้ว ${plan.groupCount} กลุ่ม + สายน็อคเอาต์ (${total} คู่) — ตั้งวันเวลาได้ที่หน้าจัดวันเวลาแข่ง` };
+  }
+  const { totalRounds } = fixtureSummary(teamCount, plan.rounds);
   return { ok: `สร้างตารางแล้ว ${totalRounds} นัด (${total} คู่) — ตั้งวันเวลาได้ที่หน้าจัดวันเวลาแข่ง` };
 }
 
