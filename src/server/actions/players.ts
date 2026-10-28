@@ -113,6 +113,19 @@ export async function importPlayersAction(
   return { ok: `นำเข้านักเตะ ${data.length} คนแล้ว` };
 }
 
+/** ซ่อน/แสดงนักเตะบนหน้าเว็บสาธารณะ — กดสลับจากปุ่มรูปตาในหน้าสโมสร */
+export async function togglePlayerHiddenAction(formData: FormData) {
+  const session = await requireRole("ADMIN");
+  const parsed = parseForm(idSchema, formData);
+  if (!parsed.ok) return;
+
+  const player = await db.player.findUnique({ where: { id: parsed.data.id }, select: { hidden: true, name: true } });
+  if (!player) return;
+  await db.player.update({ where: { id: parsed.data.id }, data: { hidden: !player.hidden } });
+  await audit(session.userId, player.hidden ? "PLAYER_SHOW" : "PLAYER_HIDE", "Player", parsed.data.id, { name: player.name });
+  refreshAll();
+}
+
 export async function deletePlayerAction(formData: FormData) {
   const session = await requireRole("ADMIN");
   const parsed = parseForm(idSchema, formData);

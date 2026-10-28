@@ -44,6 +44,8 @@ export async function getLeaders(
         : board === "yellow"
           ? { type: { in: ["YELLOW", "SECOND_YELLOW"] as EventType[] }, playerId: { not: null } }
           : { type: "RED" as EventType, playerId: { not: null } }),
+    // นักเตะที่แอดมินซ่อนไว้ไม่ขึ้นตารางอันดับ
+    ...(board === "assists" ? { assistPlayer: { hidden: false } } : { player: { hidden: false } }),
   };
 
   const events = await db.matchEvent.findMany({

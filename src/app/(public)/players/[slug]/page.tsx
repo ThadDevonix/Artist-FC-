@@ -8,7 +8,7 @@ import { ageFrom, decodeParam, minuteLabel, thaiDate } from "@/lib/format";
 export default async function PlayerPage({ params }: PageProps<"/players/[slug]">) {
   const slug = decodeParam((await params).slug);
   const player = await getPlayerBySlug(slug);
-  if (!player) notFound();
+  if (!player || player.hidden) notFound();
 
   const season = await getActiveSeason();
 

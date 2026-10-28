@@ -165,6 +165,7 @@ model Staff {
   photoUrl    String?
   nationality String?
   active      Boolean   @default(true)
+  hidden      Boolean   @default(false) // ซ่อนจากหน้าเว็บสาธารณะ
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -184,6 +185,7 @@ model Player {
   nationality String?
   birthDate   DateTime?
   active      Boolean   @default(true)
+  hidden      Boolean   @default(false) // ซ่อนจากหน้าเว็บสาธารณะ ยังบันทึกเหตุการณ์ในเกมได้ตามปกติ
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

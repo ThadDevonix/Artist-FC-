@@ -152,7 +152,7 @@ function EventDetail({
 }: {
   event: {
     type: string;
-    player: { name: string; slug: string } | null;
+    player: { name: string; slug: string; hidden: boolean } | null;
     assistPlayer: { name: string; slug: string } | null;
     issuedBy: { name: string } | null;
   };
@@ -161,7 +161,9 @@ function EventDetail({
     <div className="flex items-center gap-2 text-sm">
       <EventIcon type={event.type} />
       <span className="min-w-0">
-        {event.player ? (
+        {event.player?.hidden ? (
+          <span className="font-medium">{event.player.name}</span>
+        ) : event.player ? (
           <Link href={`/players/${event.player.slug}`} className="font-medium hover:underline">
             {event.player.name}
           </Link>

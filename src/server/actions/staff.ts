@@ -50,6 +50,19 @@ export async function saveStaffAction(
   return { ok: "เพิ่มทีมงานแล้ว" };
 }
 
+/** ซ่อน/แสดงทีมงานบนหน้าเว็บสาธารณะ — กดสลับจากปุ่มรูปตาในหน้าสโมสร */
+export async function toggleStaffHiddenAction(formData: FormData) {
+  const session = await requireRole("ADMIN");
+  const parsed = parseForm(idSchema, formData);
+  if (!parsed.ok) return;
+
+  const staff = await db.staff.findUnique({ where: { id: parsed.data.id }, select: { hidden: true, name: true } });
+  if (!staff) return;
+  await db.staff.update({ where: { id: parsed.data.id }, data: { hidden: !staff.hidden } });
+  await audit(session.userId, staff.hidden ? "STAFF_SHOW" : "STAFF_HIDE", "Staff", parsed.data.id, { name: staff.name });
+  refreshAll();
+}
+
 export async function deleteStaffAction(formData: FormData) {
   const session = await requireRole("ADMIN");
   const parsed = parseForm(idSchema, formData);

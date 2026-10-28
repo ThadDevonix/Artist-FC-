@@ -94,7 +94,7 @@ export async function getMatchDetail(id: string) {
       events: {
         orderBy: [{ minute: "asc" }, { createdAt: "asc" }],
         include: {
-          player: { select: { name: true, slug: true } },
+          player: { select: { name: true, slug: true, hidden: true } },
           assistPlayer: { select: { name: true, slug: true } },
           issuedBy: { select: { name: true } },
         },

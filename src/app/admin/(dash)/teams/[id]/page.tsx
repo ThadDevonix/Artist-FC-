@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { BackLink, Card, EditingTitle, PlayerAvatar, POSITION_LABEL, TeamBadge } from "@/components/ui";
 import { SubmitButton } from "@/components/admin/Form";
 import { EditLink } from "@/components/admin/EditLink";
+import { HideToggle } from "@/components/admin/HideToggle";
 import { EDIT_FORM_ID, editingCardClass, editingRowClass } from "@/components/admin/editing";
 import { PlayerForm } from "@/components/admin/PlayerForm";
 import { RosterImport } from "@/components/admin/RosterImport";
@@ -11,7 +12,7 @@ import { StaffForm } from "@/components/admin/StaffForm";
 import { Modal } from "@/components/admin/Modal";
 import { TeamForm } from "@/components/admin/TeamForm";
 import { staffRoleName } from "@/lib/labels";
-import { deletePlayerAction, deleteStaffAction, deleteTeamAction } from "@/server/actions";
+import { deletePlayerAction, deleteStaffAction, deleteTeamAction, togglePlayerHiddenAction, toggleStaffHiddenAction } from "@/server/actions";
 import { requireRole } from "@/server/auth";
 import {
   getPlayerById,
@@ -150,7 +151,7 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
                       <th className="w-9 py-2 pl-3 text-center font-medium sm:w-12 sm:pl-4">#</th>
                       <th className="py-2 text-left font-medium">ชื่อ</th>
                       <th className="hidden w-28 py-2 text-left font-medium sm:table-cell">ตำแหน่ง</th>
-                      <th className="w-24 py-2 pr-3 text-right font-medium sm:w-28 sm:pr-4">จัดการ</th>
+                      <th className="w-32 py-2 pr-3 text-right font-medium sm:w-36 sm:pr-4">จัดการ</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -168,6 +169,7 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
                               <span className="block text-xs text-muted sm:hidden">
                                 {POSITION_LABEL[p.position]}
                                 {!p.active && " · ไม่อยู่ในทีมแล้ว"}
+                                {p.hidden && " · ซ่อนจากหน้าเว็บ"}
                               </span>
                             </span>
                           </span>
@@ -175,9 +177,14 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
                         <td className="hidden py-2 text-muted sm:table-cell">
                           {POSITION_LABEL[p.position]}
                           {!p.active && <span className="block text-xs">ไม่อยู่ในทีมแล้ว</span>}
+                          {p.hidden && <span className="block text-xs text-loss">ซ่อนจากหน้าเว็บ</span>}
                         </td>
                         <td className="py-2 pr-3 text-right sm:pr-4">
                           <span className="inline-flex gap-1.5">
+                            <form action={togglePlayerHiddenAction}>
+                              <input type="hidden" name="id" value={p.id} />
+                              <HideToggle hidden={p.hidden} name={p.name} />
+                            </form>
                             <EditLink href={`${base}?player=${p.id}`} active={editing?.id === p.id} />
                             <form action={deletePlayerAction}>
                               <input type="hidden" name="id" value={p.id} />
@@ -200,7 +207,7 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
                   <tr className="border-b border-line text-xs text-muted">
                     <th className="py-2 pl-3 text-left font-medium sm:pl-4">ชื่อ</th>
                     <th className="hidden py-2 text-left font-medium sm:table-cell">ตำแหน่ง</th>
-                    <th className="w-24 py-2 pr-3 text-right font-medium sm:w-28 sm:pr-4">จัดการ</th>
+                    <th className="w-32 py-2 pr-3 text-right font-medium sm:w-36 sm:pr-4">จัดการ</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -217,6 +224,7 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
                             <span className="block text-xs text-muted sm:hidden">
                               {staffRoleName(s)}
                               {!s.active && " · ไม่อยู่ในทีมแล้ว"}
+                              {s.hidden && " · ซ่อนจากหน้าเว็บ"}
                             </span>
                           </span>
                         </span>
@@ -224,9 +232,14 @@ export default async function TeamAdminPage({ params, searchParams }: PageProps<
                       <td className="hidden py-2 text-muted sm:table-cell">
                         {staffRoleName(s)}
                         {!s.active && <span className="block text-xs">ไม่อยู่ในทีมแล้ว</span>}
+                        {s.hidden && <span className="block text-xs text-loss">ซ่อนจากหน้าเว็บ</span>}
                       </td>
                       <td className="py-2 pr-3 text-right sm:pr-4">
                         <span className="inline-flex gap-1.5">
+                          <form action={toggleStaffHiddenAction}>
+                            <input type="hidden" name="id" value={s.id} />
+                            <HideToggle hidden={s.hidden} name={s.name} />
+                          </form>
                           <EditLink href={`${staffBase}&staff=${s.id}`} active={editingS?.id === s.id} />
                           <form action={deleteStaffAction}>
                             <input type="hidden" name="id" value={s.id} />

@@ -18,6 +18,7 @@ export async function listSeasonPlayers(
   return db.player.findMany({
     where: {
       active: true,
+      hidden: false,
       team: {
         seasons: { some: { seasonId } },
         ...(filters.teamSlug ? { slug: filters.teamSlug } : {}),
@@ -37,7 +38,7 @@ export async function listSeasonPlayers(
 /** นักเตะของทีมเดียว เรียงตามเบอร์เสื้อ */
 export async function listTeamPlayers(teamId: string) {
   return db.player.findMany({
-    where: { teamId, active: true },
+    where: { teamId, active: true, hidden: false },
     orderBy: [{ number: "asc" }],
     select: { id: true, name: true, slug: true, number: true, position: true, nationality: true, photoUrl: true, birthDate: true },
   });
