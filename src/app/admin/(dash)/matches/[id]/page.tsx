@@ -6,7 +6,7 @@ import { ActionForm, Field, SubmitButton, inputClass } from "@/components/admin/
 import { EventForm } from "@/components/admin/EventForm";
 import { StartLiveButton } from "@/components/admin/StartLiveButton";
 import { LiveClock } from "@/components/LiveClock";
-import { liveClockProps } from "@/lib/live-clock";
+import { breakName, liveClockProps, periodName } from "@/lib/live-clock";
 import {
   addEventAction,
   approveMatchAction,
@@ -58,6 +58,8 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
 
   const locked = !permission.canEdit;
   const clock = liveClockProps(match);
+  const { livePeriod } = match;
+  const { periods } = match.season;
 
   const [squads, activeOfficials] = await Promise.all([
     listMatchSquads(match.homeTeamId, match.awayTeamId),
@@ -70,7 +72,9 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
   return (
     <div className="space-y-6">
       <div>
-        <BackLink href="/admin/matches">รายการนัด</BackLink>
+        <BackLink href={match.season.isActive ? "/admin/matches" : `/admin/matches?season=${encodeURIComponent(match.season.slug)}`}>
+          รายการนัด
+        </BackLink>
       </div>
 
       <Card bodyClassName="px-4 pb-5 sm:px-6">
@@ -120,7 +124,7 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
           )}
 
           {match.status === "LIVE" && (
-            <Card bodyClassName="px-4 py-5 sm:px-5" className={match.livePhase === "HALF_TIME" ? "halftime-glow" : "live-glow"}>
+            <Card bodyClassName="px-4 py-5 sm:px-5" className={match.liveBreak ? "halftime-glow" : "live-glow"}>
               <div className="flex items-center justify-center gap-3">
                 <LiveBadge />
                 <LiveClock {...clock} className="text-2xl" />
@@ -128,7 +132,10 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
               <div className="mt-2 flex justify-center">
                 <LiveClock {...clock} variant="stopwatch" className="text-xl" />
               </div>
-              <p className="mt-1 text-center text-xs text-muted">สกอร์นับจากเหตุการณ์ประตูอัตโนมัติ</p>
+              <p className="mt-1 text-center text-xs text-muted">
+                {livePeriod && !match.liveBreak && periods > 1 && `${periodName(livePeriod, periods)} · `}
+                สกอร์นับจากเหตุการณ์ประตูอัตโนมัติ
+              </p>
               <div className="my-4 flex items-center justify-center gap-4">
                 <span className="flex min-w-0 flex-1 items-center justify-end gap-2 font-semibold">
                   <span className="truncate">{match.homeTeam.shortName}</span>
@@ -142,22 +149,16 @@ export default async function AdminMatchPage({ params }: PageProps<"/admin/match
                   <span className="truncate">{match.awayTeam.shortName}</span>
                 </span>
               </div>
-              <div className="mb-3 grid grid-cols-2 gap-2">
-                <form action={setLivePhaseAction}>
+              {/* ปุ่มเดียวตามช่วงปัจจุบัน: กำลังแข่ง → พัก · พักอยู่ → เริ่มช่วงถัดไป · ช่วงสุดท้าย → เหลือแค่จบเกม */}
+              {livePeriod && (match.liveBreak || livePeriod < periods) && (
+                <form action={setLivePhaseAction} className="mb-3">
                   <input type="hidden" name="matchId" value={match.id} />
-                  <input type="hidden" name="phase" value="HALF_TIME" />
-                  <SubmitButton variant="ghost" className="w-full" disabled={match.livePhase !== "FIRST_HALF"}>
-                    ⏸ พักครึ่ง
+                  <input type="hidden" name="step" value={match.liveBreak ? "NEXT" : "BREAK"} />
+                  <SubmitButton variant="ghost" className="w-full">
+                    {match.liveBreak ? `▶ เริ่ม${periodName(livePeriod + 1, periods)}` : `⏸ ${breakName(livePeriod, periods)}`}
                   </SubmitButton>
                 </form>
-                <form action={setLivePhaseAction}>
-                  <input type="hidden" name="matchId" value={match.id} />
-                  <input type="hidden" name="phase" value="SECOND_HALF" />
-                  <SubmitButton variant="ghost" className="w-full" disabled={match.livePhase !== "HALF_TIME"}>
-                    ▶ เริ่มครึ่งหลัง
-                  </SubmitButton>
-                </form>
-              </div>
+              )}
               <ActionForm action={finishLiveAction}>
                 <input type="hidden" name="matchId" value={match.id} />
                 <SubmitButton

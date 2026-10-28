@@ -12,9 +12,10 @@ export const matchListSelect = {
   status: true,
   homeGoals: true,
   awayGoals: true,
-  livePhase: true,
+  livePeriod: true,
+  liveBreak: true,
   phaseStartedAt: true,
-  season: { select: { halfMinutes: true } },
+  season: { select: { periods: true, periodMinutes: true } },
   homeTeam: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true, color2: true } },
   awayTeam: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, color: true, color2: true } },
 } as const;
@@ -86,7 +87,7 @@ export async function getMatchDetail(id: string) {
     include: {
       homeTeam: true,
       awayTeam: true,
-      season: { select: { name: true, halfMinutes: true } },
+      season: { select: { name: true, periods: true, periodMinutes: true } },
       referee: officialName,
       assistant1: officialName,
       assistant2: officialName,
@@ -110,7 +111,7 @@ export async function getMatchForAdmin(id: string) {
     include: {
       homeTeam: true,
       awayTeam: true,
-      season: { select: { halfMinutes: true } },
+      season: { select: { slug: true, isActive: true, periods: true, periodMinutes: true } },
       // userId ใช้ตัดสินสิทธิ์ (matchPermission) ว่าบัญชีที่ล็อกอินอยู่ในทีมผู้ตัดสินไหม
       referee: officialWithUser,
       assistant1: officialWithUser,

@@ -55,7 +55,8 @@ async function recordResult(
       awayGoals,
       ...(notes !== undefined ? { notes } : {}),
       status: isAdmin ? "FINISHED" : "PENDING",
-      livePhase: null,
+      livePeriod: null,
+      liveBreak: false,
       phaseStartedAt: null,
       submittedById: session.userId,
       submittedAt: now,
@@ -90,7 +91,7 @@ export async function startLiveAction(formData: FormData) {
   const now = new Date();
   await db.match.update({
     where: { id: access.match.id },
-    data: { status: "LIVE", livePhase: "FIRST_HALF", phaseStartedAt: now, kickoffAt: now },
+    data: { status: "LIVE", livePeriod: 1, liveBreak: false, phaseStartedAt: now, kickoffAt: now },
   });
   await syncLiveScore(access.match.id);
   await audit(session.userId, "MATCH_LIVE_START", "Match", access.match.id, {
@@ -100,7 +101,10 @@ export async function startLiveAction(formData: FormData) {
   refreshAll();
 }
 
-/** พักครึ่ง / เริ่มครึ่งหลัง — นาฬิกานับใหม่จากเวลาที่กด */
+/**
+ * พักหลังจบช่วง / เริ่มช่วงถัดไป — นาฬิกานับใหม่จากเวลาที่กด
+ * ส่งมาแค่ว่าจะ "พัก" หรือ "เริ่มช่วงต่อไป" ส่วนเลขช่วงคิดจากสถานะปัจจุบัน กันกดซ้ำแล้วข้ามช่วง
+ */
 export async function setLivePhaseAction(formData: FormData) {
   const session = await requireSession();
   const parsed = parseForm(livePhaseSchema, formData);
@@ -108,12 +112,26 @@ export async function setLivePhaseAction(formData: FormData) {
 
   const access = await loadEditableMatch(session, parsed.data.matchId);
   if (!access.ok || access.match.status !== "LIVE") return;
+  const { livePeriod, liveBreak } = access.match;
+  if (!livePeriod) return;
 
-  await db.match.update({
-    where: { id: access.match.id },
-    data: { livePhase: parsed.data.phase, phaseStartedAt: new Date() },
+  const season = await db.season.findUnique({ where: { id: access.match.seasonId }, select: { periods: true } });
+  const periods = season?.periods ?? 2;
+
+  let data: { livePeriod: number; liveBreak: boolean };
+  if (parsed.data.step === "BREAK") {
+    if (liveBreak || livePeriod >= periods) return;
+    data = { livePeriod, liveBreak: true };
+  } else {
+    if (!liveBreak) return;
+    data = { livePeriod: livePeriod + 1, liveBreak: false };
+  }
+
+  await db.match.update({ where: { id: access.match.id }, data: { ...data, phaseStartedAt: new Date() } });
+  await audit(session.userId, "MATCH_LIVE_PHASE", "Match", access.match.id, {
+    step: parsed.data.step,
+    period: data.livePeriod,
   });
-  await audit(session.userId, "MATCH_LIVE_PHASE", "Match", access.match.id, { phase: parsed.data.phase });
   refreshAll();
 }
 
@@ -203,9 +221,9 @@ export async function updateMatchAction(_prev: ActionState, formData: FormData):
       assistant2Id,
       fourthOfficialId,
       ...(status ? { status } : {}),
-      ...(leftLive ? { homeGoals: null, awayGoals: null, livePhase: null, phaseStartedAt: null } : {}),
-      // ตั้งเป็น "กำลังแข่ง" จากฟอร์มนี้โดยตรง (ไม่ผ่านปุ่มเริ่มถ่ายทอด) → เริ่มนาฬิกาครึ่งแรกให้
-      ...(status === "LIVE" && before.status !== "LIVE" ? { livePhase: "FIRST_HALF" as const, phaseStartedAt: new Date() } : {}),
+      ...(leftLive ? { homeGoals: null, awayGoals: null, livePeriod: null, liveBreak: false, phaseStartedAt: null } : {}),
+      // ตั้งเป็น "กำลังแข่ง" จากฟอร์มนี้โดยตรง (ไม่ผ่านปุ่มเริ่มถ่ายทอด) → เริ่มนาฬิกาช่วงแรกให้
+      ...(status === "LIVE" && before.status !== "LIVE" ? { livePeriod: 1, liveBreak: false, phaseStartedAt: new Date() } : {}),
     },
   });
   await syncLiveScore(matchId);

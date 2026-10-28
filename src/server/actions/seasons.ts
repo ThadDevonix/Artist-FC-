@@ -31,7 +31,7 @@ export async function saveSeasonAction(
 
   const parsed = parseForm(seasonSchema, formData);
   if (!parsed.ok) return { error: parsed.error };
-  const { id, name, rounds, pointsWin, pointsDraw, pointsLoss, halfMinutes, startDate, endDate, teamCount } = parsed.data;
+  const { id, name, rounds, pointsWin, pointsDraw, pointsLoss, periods, periodMinutes, startDate, endDate, teamCount } = parsed.data;
 
   // checkbox หลายช่องชื่อเดียวกัน — zod อ่านได้ทีละค่า จึงดึงตรงจาก FormData
   const tiebreakers = formData.getAll("tiebreakers").filter((v): v is string => typeof v === "string");
@@ -42,8 +42,9 @@ export async function saveSeasonAction(
     pointsWin: pointsWin ?? 3,
     pointsDraw: pointsDraw ?? 1,
     pointsLoss: pointsLoss ?? 0,
-    // ฟอร์มสร้างฤดูกาลไม่มีช่องนี้ → ไม่ส่งไปเลย ให้ใช้ค่าเดิม/ค่าตั้งต้น 45 ของฐานข้อมูล
-    ...(halfMinutes !== null ? { halfMinutes } : {}),
+    // เว้นว่าง → ไม่ส่งไปเลย ให้ใช้ค่าเดิม/ค่าตั้งต้นของฐานข้อมูล (2 ครึ่ง × 45 นาที)
+    ...(periods !== null ? { periods } : {}),
+    ...(periodMinutes !== null ? { periodMinutes } : {}),
     startDate,
     endDate,
     ...(tiebreakers.length ? { tiebreakers: JSON.stringify(tiebreakers) } : {}),

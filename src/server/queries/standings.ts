@@ -1,6 +1,5 @@
 import "server-only";
 import { db } from "@/server/db";
-import type { LivePhase } from "@/generated/prisma/enums";
 import { computeStandings, parseTiebreakers, type StandingRow } from "@/lib/standings";
 
 export type StandingZone = { label: string; color: string; fromPos: number; toPos: number };
@@ -16,9 +15,11 @@ export type LiveTeamScore = {
   goalsFor: number;
   goalsAgainst: number;
   /** นาฬิกาของนัดนั้น — ใช้แสดงนาทีหลังสกอร์ในตาราง */
-  livePhase: LivePhase | null;
+  livePeriod: number | null;
+  liveBreak: boolean;
   phaseStartedAt: Date | null;
-  halfMinutes: number;
+  periods: number;
+  periodMinutes: number;
 };
 
 /**
@@ -47,7 +48,7 @@ export async function getStandings(
     db.match.findMany({
       where: { seasonId, status: { in: includeLive ? ["FINISHED", "LIVE"] : ["FINISHED"] } },
       select: {
-        id: true, round: true, kickoffAt: true, status: true, livePhase: true, phaseStartedAt: true,
+        id: true, round: true, kickoffAt: true, status: true, livePeriod: true, liveBreak: true, phaseStartedAt: true,
         homeTeamId: true, awayTeamId: true, homeGoals: true, awayGoals: true,
       },
       orderBy: { kickoffAt: "asc" },
@@ -60,7 +61,10 @@ export async function getStandings(
   const live: Record<string, LiveTeamScore> = {};
   for (const m of matches) {
     if (m.status !== "LIVE" || m.homeGoals === null || m.awayGoals === null) continue;
-    const clock = { livePhase: m.livePhase, phaseStartedAt: m.phaseStartedAt, halfMinutes: season.halfMinutes };
+    const clock = {
+      livePeriod: m.livePeriod, liveBreak: m.liveBreak, phaseStartedAt: m.phaseStartedAt,
+      periods: season.periods, periodMinutes: season.periodMinutes,
+    };
     live[m.homeTeamId] = { goalsFor: m.homeGoals, goalsAgainst: m.awayGoals, ...clock };
     live[m.awayTeamId] = { goalsFor: m.awayGoals, goalsAgainst: m.homeGoals, ...clock };
   }

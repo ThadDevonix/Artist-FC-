@@ -74,6 +74,25 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+  ดรอปดาวน์ทุกตัว — ใช้ลูกศรของเราแทนของเบราว์เซอร์ (ของเดิมเล็ก ชิดขอบขวา และหน้าตาต่างกันในแต่ละเครื่อง)
+  ลูกศรอยู่กึ่งกลางแนวตั้ง ห่างขอบขวาเท่ากันทุกตัว · ไม่อยู่ใน @layer จึงชนะคลาส px-* ของ Tailwind
+  ตัวที่ไม่มีขอบ/ระยะในตัว ปรับระยะลูกศรได้ด้วย --chevron-inset
+*/
+select:not([multiple]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%235f5f5f' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--chevron-inset, 0.75rem) center;
+  background-size: 1rem 1rem;
+  padding-right: calc(var(--chevron-inset, 0.75rem) + 1.5rem);
+  text-overflow: ellipsis;
+}
+[data-theme="dark"] select:not([multiple]) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%239b9b9b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
 /* ช่องกรอกข้อมูลให้เข้ากับธีมมืด */
 [data-theme="dark"] input,
 [data-theme="dark"] select,

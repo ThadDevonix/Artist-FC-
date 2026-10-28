@@ -25,7 +25,7 @@ export function SeasonSelect({
           next.set("season", e.target.value);
           router.push(`${pathname}?${next}`);
         }}
-        className="mt-0.5 w-full cursor-pointer bg-transparent text-base font-semibold outline-none"
+        className="mt-0.5 w-full cursor-pointer bg-transparent text-base font-semibold outline-none [--chevron-inset:0px]"
       >
         {seasons.map((s) => (
           <option key={s.slug} value={s.slug}>

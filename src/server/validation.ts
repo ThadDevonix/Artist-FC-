@@ -182,7 +182,7 @@ export const officialSchema = z.object({
 
 export const livePhaseSchema = z.object({
   matchId: required("ไม่พบนัดนี้"),
-  phase: z.enum(["HALF_TIME", "SECOND_HALF"]),
+  step: z.enum(["BREAK", "NEXT"]), // พักหลังจบช่วงนี้ / เริ่มช่วงถัดไป
 });
 
 export const matchIdSchema = z.object({
@@ -273,7 +273,8 @@ export const seasonSchema = z.object({
   pointsWin: optionalInt,
   pointsDraw: optionalInt,
   pointsLoss: optionalInt,
-  halfMinutes: optionalInt.refine((v) => v === null || (v >= 10 && v <= 60), "ความยาวครึ่งต้องอยู่ระหว่าง 10–60 นาที"),
+  periods: optionalInt.refine((v) => v === null || (v >= 1 && v <= 4), "จำนวนช่วงต้องอยู่ระหว่าง 1–4"),
+  periodMinutes: optionalInt.refine((v) => v === null || (v >= 5 && v <= 60), "ความยาวแต่ละช่วงต้องอยู่ระหว่าง 5–60 นาที"),
   startDate: optionalDate,
   endDate: optionalDate,
   // จำนวนทีมในตารางแข่ง — มีเฉพาะฟอร์มสร้างฤดูกาล เว้นว่าง = ยังไม่สร้างตาราง

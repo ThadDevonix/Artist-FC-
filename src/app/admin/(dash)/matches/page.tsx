@@ -4,6 +4,7 @@ import { Card, StatusPill, TeamBadge } from "@/components/ui";
 import { requireSession } from "@/server/auth";
 import { getSeasonBySlug, listMatchesForAdmin, listRoundOptions, listSeasons } from "@/server/queries";
 import { RoundPicker } from "@/components/RoundPicker";
+import { SeasonPicker } from "@/components/admin/SeasonPicker";
 import { thaiDateTime } from "@/lib/format";
 import { MATCH_STATUS_LABEL } from "@/lib/labels";
 import { matchStatusEnum, parseEnumParam } from "@/server/validation";
@@ -43,7 +44,8 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
 
   const link = (patch: Record<string, string | undefined>) => {
     const q = new URLSearchParams();
-    if (season.slug !== seasons[0]?.slug) q.set("season", season.slug);
+    // ฤดูกาลที่ใช้งานอยู่เป็นค่าเริ่มต้นอยู่แล้ว — ฤดูกาลอื่นต้องติดไปในลิงก์ทุกครั้ง ไม่งั้นกดตัวกรองแล้วเด้งกลับ
+    if (!season.isActive) q.set("season", season.slug);
     if (status) q.set("status", status);
     if (round) q.set("round", String(round));
     if (mine && admin) q.set("mine", "1");
@@ -58,7 +60,13 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">บันทึกผลการแข่งขัน</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold">บันทึกผลการแข่งขัน</h1>
+          <SeasonPicker
+            seasons={seasons.map((s) => ({ slug: s.slug, name: s.name, isActive: s.isActive }))}
+            current={season.slug}
+          />
+        </div>
         {!admin && (
           <p className="text-sm text-muted">แสดงเฉพาะนัดที่คุณเป็นผู้ตัดสิน</p>
         )}
@@ -68,7 +76,7 @@ export default async function AdminMatchesPage({ searchParams }: PageProps<"/adm
               โหลด Excel การแข่งขัน {round ? `นัดที่ ${round}` : "ทุกนัด"}
             </ExcelButton>
             <Link
-              href={`/admin/schedule${round ? `?round=${round}` : ""}`}
+              href={`/admin/schedule${link({ status: undefined, mine: undefined }).replace("/admin/matches", "")}`}
               className="inline-flex items-center gap-2 rounded-lg border-2 border-brand px-4 py-2 text-sm font-semibold text-brand transition hover:bg-brand hover:text-white"
             >
               <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>

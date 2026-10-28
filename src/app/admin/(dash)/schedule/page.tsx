@@ -2,9 +2,10 @@ import { BackLink, Card, StatusPill, TeamBadge } from "@/components/ui";
 import { ActionForm, Field, SubmitButton, inputClass } from "@/components/admin/Form";
 import { FillAll } from "@/components/admin/FillAll";
 import { RoundPicker } from "@/components/RoundPicker";
+import { SeasonPicker } from "@/components/admin/SeasonPicker";
 import { autoScheduleAction, saveScheduleAction } from "@/server/actions";
 import { requireRole } from "@/server/auth";
-import { getSeasonBySlug, listMatchesForAdmin, listRoundOptions } from "@/server/queries";
+import { getSeasonBySlug, listMatchesForAdmin, listRoundOptions, listSeasons } from "@/server/queries";
 import { toThaiDate, toThaiTime } from "@/lib/format";
 
 export const metadata = { title: "จัดวันเวลาแข่ง" };
@@ -27,25 +28,34 @@ const WEEKDAYS = [
 export default async function SchedulePage({ searchParams }: PageProps<"/admin/schedule">) {
   await requireRole("ADMIN");
   const sp = await searchParams;
-  const season = await getSeasonBySlug(typeof sp.season === "string" ? sp.season : undefined);
+  const [seasons, season] = await Promise.all([
+    listSeasons(),
+    getSeasonBySlug(typeof sp.season === "string" ? sp.season : undefined),
+  ]);
   if (!season) return <p className="py-10 text-center text-muted">ยังไม่มีฤดูกาล</p>;
 
   const rounds = await listRoundOptions(season.id);
   const asked = typeof sp.round === "string" ? Number(sp.round) : undefined;
   const round = rounds.some((r) => r.round === asked) ? asked : rounds[0]?.round;
   const matches = round ? await listMatchesForAdmin(season.id, { round }) : [];
-  const query = typeof sp.season === "string" ? `season=${encodeURIComponent(sp.season)}` : "";
+  const query = season.isActive ? "" : `season=${encodeURIComponent(season.slug)}`;
   const unset = matches.filter((m) => !m.kickoffAt).length;
 
   return (
     <div className="space-y-4">
       <div>
-        <BackLink href="/admin/matches">บันทึกผลการแข่งขัน</BackLink>
+        <BackLink href={`/admin/matches${query ? `?${query}` : ""}`}>บันทึกผลการแข่งขัน</BackLink>
       </div>
       <div>
-        <h1 className="text-2xl font-bold">จัดวันเวลาแข่ง</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold">จัดวันเวลาแข่ง</h1>
+          <SeasonPicker
+            seasons={seasons.map((s) => ({ slug: s.slug, name: s.name, isActive: s.isActive }))}
+            current={season.slug}
+          />
+        </div>
         <p className="mt-1 text-sm text-muted">
-          ฤดูกาล {season.name} · แต่ละคู่ในนัดเดียวกันตั้งคนละวัน/เวลาได้ แล้วกดบันทึกครั้งเดียว · ยังไม่รู้วันก็เว้นว่างไว้ได้
+          แต่ละคู่ในนัดเดียวกันตั้งคนละวัน/เวลาได้ แล้วกดบันทึกครั้งเดียว · ยังไม่รู้วันก็เว้นว่างไว้ได้
         </p>
       </div>
 

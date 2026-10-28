@@ -188,7 +188,7 @@ export function EventForm({
           />
         </Field>
       </div>
-      {liveClock && liveClock.phase !== "HALF_TIME" && (
+      {liveClock && !liveClock.onBreak && (
         <button
           type="button"
           onClick={fillNow}

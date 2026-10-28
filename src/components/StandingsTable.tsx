@@ -116,9 +116,10 @@ export function StandingsTable({
                         </span>
                         <LiveClock
                           {...liveClockProps({
-                            livePhase: playing.livePhase,
+                            livePeriod: playing.livePeriod,
+                            liveBreak: playing.liveBreak,
                             phaseStartedAt: playing.phaseStartedAt,
-                            season: { halfMinutes: playing.halfMinutes },
+                            season: { periods: playing.periods, periodMinutes: playing.periodMinutes },
                           })}
                           className="text-[11px]"
                         />

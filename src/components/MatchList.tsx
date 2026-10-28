@@ -3,7 +3,6 @@ import { StatusPill, TeamBadge } from "@/components/ui";
 import { thaiDayMonth, thaiTime } from "@/lib/format";
 import { liveClockProps } from "@/lib/live-clock";
 import { LiveClock } from "@/components/LiveClock";
-import type { LivePhase } from "@/generated/prisma/enums";
 
 export type MatchListItem = {
   id: string;
@@ -16,9 +15,10 @@ export type MatchListItem = {
   homeTeam: { id: string; name: string; shortName: string; slug: string; logoUrl: string | null; color: string; color2: string | null };
   awayTeam: { id: string; name: string; shortName: string; slug: string; logoUrl: string | null; color: string; color2: string | null };
   /** นาฬิกาถ่ายทอดสด (มีเมื่อดึงด้วย matchListSelect) */
-  livePhase?: LivePhase | null;
+  livePeriod?: number | null;
+  liveBreak?: boolean;
   phaseStartedAt?: Date | null;
-  season?: { halfMinutes: number };
+  season?: { periods: number; periodMinutes: number };
 };
 
 export function MatchRow({ match, showRound = false }: { match: MatchListItem; showRound?: boolean }) {
@@ -28,7 +28,7 @@ export function MatchRow({ match, showRound = false }: { match: MatchListItem; s
   const awayWin = played && match.awayGoals! > match.homeGoals!;
 
   const clock = live && match.season && (
-    <LiveClock {...liveClockProps({ livePhase: match.livePhase ?? null, phaseStartedAt: match.phaseStartedAt ?? null, season: match.season })} />
+    <LiveClock {...liveClockProps({ livePeriod: match.livePeriod ?? null, liveBreak: match.liveBreak ?? false, phaseStartedAt: match.phaseStartedAt ?? null, season: match.season })} />
   );
   // สถานะที่ควรเห็นในกล่องแคบ — "ยังไม่แข่ง" / "จบแล้ว" เป็นค่าปกติ ไม่ต้องโชว์ให้รก
   const notable = match.status !== "SCHEDULED" && match.status !== "FINISHED";

@@ -3,6 +3,7 @@
  *   เริ่มถ่ายทอด → 0–0 · บันทึกประตู/ทำเข้าประตูตัวเอง → สกอร์ขยับเอง · ลบเหตุการณ์ → สกอร์ลด
  *   ตารางคะแนนนับนัดที่กำลังแข่งทันที (อันดับขยับตามประตู) · กดจบเกม → ผลจากเหตุการณ์ อนุมัติทันที
  *   นาฬิกา: เริ่มครึ่งแรก 1' → พักครึ่ง → ครึ่งหลังนับต่อจาก 45' → จบเกมแล้วหยุด
+ *   ฤดูกาลแบบ 4 ควอเตอร์: ปุ่มพัก/เริ่มไล่ทีละควอเตอร์ · ควอเตอร์สุดท้ายเหลือแค่ปุ่มจบเกม
  * ใช้ฤดูกาล/ทีม/นัดชั่วคราวที่ไม่ใช่ฤดูกาลปัจจุบัน (ไม่โผล่บนหน้าแรก) แล้วลบทิ้งใน finally เสมอ
  */
 import "dotenv/config";
@@ -80,8 +81,8 @@ async function main() {
     await submit(url, cookie, "เริ่มถ่ายทอดสด");
     let s = await score();
     check("สถานะเป็น LIVE สกอร์ 0–0", s.status === "LIVE" && s.text === "0–0", `${s.status} ${s.text}`);
-    let phase = await db.match.findUniqueOrThrow({ where: { id: match.id }, select: { livePhase: true, phaseStartedAt: true } });
-    check("นาฬิกาเริ่มครึ่งแรก", phase.livePhase === "FIRST_HALF" && phase.phaseStartedAt !== null);
+    let phase = await db.match.findUniqueOrThrow({ where: { id: match.id }, select: { livePeriod: true, liveBreak: true, phaseStartedAt: true } });
+    check("นาฬิกาเริ่มครึ่งแรก", phase.livePeriod === 1 && !phase.liveBreak && phase.phaseStartedAt !== null);
     const started = await db.match.findUniqueOrThrow({ where: { id: match.id }, select: { kickoffAt: true } });
     check("เวลาเตะเปลี่ยนเป็นเวลาที่กดจริง (นัดเลท)", Math.abs(started.kickoffAt!.getTime() - Date.now()) < 60_000);
     const startLog = await db.auditLog.findFirst({ where: { entityId: match.id, action: "MATCH_LIVE_START" } });
@@ -126,13 +127,13 @@ async function main() {
 
     console.log("\n— พักครึ่ง / ครึ่งหลัง —");
     await submit(url, cookie, "พักครึ่ง");
-    phase = await db.match.findUniqueOrThrow({ where: { id: match.id }, select: { livePhase: true, phaseStartedAt: true } });
-    check("พักครึ่ง", phase.livePhase === "HALF_TIME");
+    phase = await db.match.findUniqueOrThrow({ where: { id: match.id }, select: { livePeriod: true, liveBreak: true, phaseStartedAt: true } });
+    check("พักครึ่ง", phase.livePeriod === 1 && phase.liveBreak);
     const htHtml = await (await fetch(`${BASE}/matches/${match.id}`)).text();
     check("หน้านัดแสดง 'พักครึ่ง'", htHtml.includes("พักครึ่ง"));
     await submit(url, cookie, "เริ่มครึ่งหลัง");
-    phase = await db.match.findUniqueOrThrow({ where: { id: match.id }, select: { livePhase: true, phaseStartedAt: true } });
-    check("เริ่มครึ่งหลัง", phase.livePhase === "SECOND_HALF");
+    phase = await db.match.findUniqueOrThrow({ where: { id: match.id }, select: { livePeriod: true, liveBreak: true, phaseStartedAt: true } });
+    check("เริ่มครึ่งหลัง", phase.livePeriod === 2 && !phase.liveBreak);
     const shHtml = await (await fetch(`${BASE}/matches/${match.id}`)).text();
     check("ครึ่งหลังนับต่อจาก 45 → 46'", shHtml.includes("46&#x27;") || shHtml.includes("46'"));
 
@@ -142,9 +143,30 @@ async function main() {
     const m = await db.match.findUniqueOrThrow({ where: { id: match.id } });
     check("จบเกมด้วยสกอร์จากเหตุการณ์ 1–0", m.status === "FINISHED" && m.homeGoals === 1 && m.awayGoals === 0, `${m.status} ${m.homeGoals}–${m.awayGoals}`);
     check("แอดมินจบเกม = อนุมัติทันที", m.approvedAt !== null);
-    check("จบเกมแล้วนาฬิกาหยุด", m.livePhase === null && m.phaseStartedAt === null);
+    check("จบเกมแล้วนาฬิกาหยุด", m.livePeriod === null && !m.liveBreak && m.phaseStartedAt === null);
     const finishedAfter = await db.match.count({ where: { seasonId: season.id, status: "FINISHED" } });
     check("เข้าตารางคะแนนทางการ", finishedAfter === finishedBefore + 1);
+
+    console.log("\n— ฤดูกาลแบบ 4 ควอเตอร์ × 12 นาที —");
+    await db.season.update({ where: { id: season.id }, data: { periods: 4, periodMinutes: 12 } });
+    const q = await db.match.create({ data: { seasonId: season.id, round: 2, homeTeamId: away.id, awayTeamId: home.id } });
+    const qUrl = `${BASE}/admin/matches/${q.id}`;
+    const qState = () => db.match.findUniqueOrThrow({ where: { id: q.id }, select: { livePeriod: true, liveBreak: true } });
+    await submit(qUrl, cookie, "เริ่มถ่ายทอดสด");
+    let qHtml = await (await fetch(qUrl, { headers: { cookie } })).text();
+    check("ควอเตอร์แรกมีปุ่มพักหลังควอเตอร์ที่ 1", qHtml.includes("พักหลังควอเตอร์ที่ 1") && !qHtml.includes("พักครึ่ง"));
+    for (let n = 1; n < 4; n++) {
+      await submit(qUrl, cookie, `พักหลังควอเตอร์ที่ ${n}`);
+      let st = await qState();
+      check(`พักหลังควอเตอร์ที่ ${n}`, st.livePeriod === n && st.liveBreak);
+      await submit(qUrl, cookie, `เริ่มควอเตอร์ที่ ${n + 1}`);
+      st = await qState();
+      check(`เริ่มควอเตอร์ที่ ${n + 1}`, st.livePeriod === n + 1 && !st.liveBreak);
+    }
+    const q4 = await (await fetch(`${BASE}/matches/${q.id}`)).text();
+    check("ควอเตอร์ที่ 4 นับต่อจาก 36 → 37'", q4.includes("37&#x27;") || q4.includes("37'"));
+    qHtml = await (await fetch(qUrl, { headers: { cookie } })).text();
+    check("ควอเตอร์สุดท้ายไม่มีปุ่มพัก เหลือแค่จบเกม", !qHtml.includes("⏸") && qHtml.includes("จบเกม"));
   } finally {
     await db.auditLog.deleteMany({ where: { entityId: match.id } });
     await db.season.delete({ where: { id: season.id } }); // นัด/เหตุการณ์ถูกลบตาม (cascade)

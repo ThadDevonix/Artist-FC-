@@ -3,6 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { computeStandings, parseTiebreakers, type StandingTeam } from "../src/lib/standings";
 import { generateRoundRobin, fixtureSummary } from "../src/lib/fixtures";
+import { readClock, readStopwatch } from "../src/lib/live-clock";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 
@@ -52,6 +53,25 @@ async function main() {
       perRound.set(p.round, set);
     }
     console.log(`${n} ทีม → ${pairs.length} นัด (คาด ${s.totalMatches}) | คู่ไม่ซ้ำ ${seen.size} | ชนกันในนัดเดียว: ${clash ? "มี ✗" : "ไม่มี ✓"}`);
+  }
+
+  // ตรวจนาฬิกาถ่ายทอดสดตามจำนวนช่วงของฤดูกาล — เริ่มช่วงมาแล้ว 5 นาที 30 วินาที
+  const t0 = new Date("2026-01-01T00:00:00Z");
+  const at = t0.getTime() + 5.5 * 60_000;
+  const clock = (period: number, periods: number, periodMinutes: number, onBreak = false) =>
+    ({ period, onBreak, startedAt: t0, periods, periodMinutes });
+  const clockCases: [string, string | null, string][] = [
+    ["2 ครึ่ง × 45 ครึ่งแรก", readClock(clock(1, 2, 45), at).label, "6'"],
+    ["2 ครึ่ง × 45 ครึ่งหลัง", readClock(clock(2, 2, 45), at).label, "51'"],
+    ["2 ครึ่ง พักครึ่ง", readClock(clock(1, 2, 45, true), at).label, "พักครึ่ง"],
+    ["4 ควอเตอร์ × 12 ควอเตอร์ที่ 3", readClock(clock(3, 4, 12), at).label, "30'"],
+    ["4 ควอเตอร์ × 5 ทดเวลา", readClock(clock(4, 4, 5), at).label, "20+1'"],
+    ["4 ควอเตอร์ พักหลัง Q2", readClock(clock(2, 4, 12, true), at).label, "พักหลังควอเตอร์ที่ 2"],
+    ["นาฬิกาจับเวลา ควอเตอร์ที่ 3", readStopwatch(clock(3, 4, 12), at), "29:30"],
+  ];
+  for (const [label, got, want] of clockCases) {
+    console.log(`นาฬิกา ${label}: ${got} ${got === want ? "✓" : `✗ (ควรเป็น ${want})`}`);
+    if (got !== want) process.exitCode = 1;
   }
   await db.$disconnect();
 }

@@ -28,6 +28,7 @@ import {
 } from "@/server/queries";
 import { MAX_TEAMS } from "@/server/validation";
 import { parseTiebreakers, TIEBREAKER_LABELS, type Tiebreaker } from "@/lib/standings";
+import { PERIOD_OPTIONS } from "@/lib/live-clock";
 
 export const metadata = { title: "ฤดูกาล" };
 
@@ -95,8 +96,25 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
         />
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Modal title={`ตั้งค่าฤดูกาล ${season.name}`} triggerClassName={outlineButton} trigger={<><EditIcon />แก้ไขการตั้งค่า</>}>
+      <div className="flex flex-wrap items-center gap-2">
+        {/* ฤดูกาลที่ใช้งานอยู่ = ฤดูกาลที่หน้าเว็บแสดง — ให้เห็นและสลับได้ทันทีโดยไม่ต้องเปิดป๊อปอัพ */}
+        {season.isActive ? (
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-win/10 px-3 py-2 text-sm font-semibold text-win">
+            ● ใช้งานอยู่บนหน้าเว็บ
+          </span>
+        ) : (
+          <form action={activateSeasonAction}>
+            <input type="hidden" name="id" value={season.id} />
+            <SubmitButton>ใช้ฤดูกาลนี้</SubmitButton>
+          </form>
+        )}
+        {/* key = ฤดูกาล: สลับฤดูกาลแล้วฟอร์มต้องโหลดค่าของฤดูกาลใหม่ ไม่ค้างค่าเดิม */}
+        <Modal
+          key={season.id}
+          title={`ตั้งค่าฤดูกาล ${season.name}`}
+          triggerClassName={outlineButton}
+          trigger={<><EditIcon />แก้ไขการตั้งค่า {season.name}</>}
+        >
           <ActionForm action={saveSeasonAction} className="space-y-4">
             <input type="hidden" name="id" value={season.id} />
 
@@ -132,9 +150,7 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
               </Field>
             </div>
 
-            <Field label="ความยาวครึ่ง (นาที)" hint="ใช้กับนาฬิกาถ่ายทอดสด เช่น 45 = 45+45 นาที, 30 = 30+30 นาที">
-              <input type="number" name="halfMinutes" min={10} max={60} defaultValue={season.halfMinutes} className={inputClass} />
-            </Field>
+            <MatchTimeFields periods={season.periods} periodMinutes={season.periodMinutes} />
 
             <fieldset>
               <legend className="mb-1 text-sm font-medium">ลำดับการตัดสินเมื่อคะแนนเท่ากัน</legend>
@@ -157,22 +173,8 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
               </div>
             </fieldset>
 
-            <div className="flex gap-2">
-              <SubmitButton>บันทึกการตั้งค่า</SubmitButton>
-              {!season.isActive && (
-                <span className="text-xs text-muted self-center">
-                  ฤดูกาลนี้ยังไม่ใช่ฤดูกาลที่แสดงบนหน้าเว็บ
-                </span>
-              )}
-            </div>
+            <SubmitButton>บันทึกการตั้งค่า</SubmitButton>
           </ActionForm>
-
-          {!season.isActive && (
-            <form action={activateSeasonAction} className="mt-4 border-t border-line pt-4">
-              <input type="hidden" name="id" value={season.id} />
-              <SubmitButton variant="ghost">ตั้งเป็นฤดูกาลที่ใช้งานอยู่</SubmitButton>
-            </form>
-          )}
 
           {/* ลบฤดูกาล — ต้องพิมพ์ชื่อฤดูกาลยืนยันทุกครั้ง */}
           <details className="mt-4 border-t border-line pt-4">
@@ -375,6 +377,30 @@ export default async function SeasonsPage({ searchParams }: PageProps<"/admin/se
   );
 }
 
+/** เวลาแข่งต่อนัด — กี่ช่วง ช่วงละกี่นาที ใช้กับนาฬิกาถ่ายทอดสดและปุ่มพัก/เริ่มช่วงถัดไป */
+function MatchTimeFields({ periods, periodMinutes }: { periods: number; periodMinutes: number }) {
+  return (
+    <fieldset>
+      <legend className="mb-1 text-sm font-medium">เวลาแข่งต่อนัด</legend>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="แบ่งเป็น">
+          <select name="periods" defaultValue={periods} className={inputClass}>
+            {PERIOD_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="ช่วงละ (นาที)">
+          <input type="number" name="periodMinutes" min={5} max={60} defaultValue={periodMinutes} required className={inputClass} />
+        </Field>
+      </div>
+      <p className="mt-1 text-xs text-muted">
+        เช่น 2 ครึ่ง × 45 = 90 นาที, 4 ควอเตอร์ × 12 = 48 นาที · ตอนนี้ {periods} × {periodMinutes} = {periods * periodMinutes} นาที
+      </p>
+    </fieldset>
+  );
+}
+
 function NewSeasonForm() {
   return (
     <ActionForm action={saveSeasonAction} className="space-y-3">
@@ -382,6 +408,7 @@ function NewSeasonForm() {
         <input name="name" placeholder="เช่น 2027–28" required className={inputClass} />
       </Field>
       <FixtureFormat max={MAX_TEAMS} required />
+      <MatchTimeFields periods={2} periodMinutes={45} />
       <p className="text-xs text-muted">
         ระบบจะสร้างตารางแข่งให้ครบทุกนัดทันที โดยใช้ชื่อ &quot;ทีม 1, ทีม 2 …&quot; ไว้ก่อน
         แล้วค่อยเลือกสโมสรใส่แต่ละช่อง และตั้งวันเวลาทีหลัง

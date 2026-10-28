@@ -21,9 +21,10 @@ export function SeasonPicker({
       onChange={(e) => {
         const next = new URLSearchParams(params);
         next.set("season", e.target.value);
+        next.delete("round"); // นัดที่ของฤดูกาลเดิมอาจไม่มีในฤดูกาลใหม่
         router.push(`${pathname}?${next}`);
       }}
-      className="w-auto max-w-full cursor-pointer rounded-full border border-ink bg-surface py-1.5 pr-8 pl-3 text-sm font-medium outline-none"
+      className="w-auto max-w-full cursor-pointer rounded-full border border-ink bg-surface py-1.5 pl-3.5 text-sm font-medium outline-none"
     >
       {seasons.map((s) => (
         <option key={s.slug} value={s.slug}>

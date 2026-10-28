@@ -67,7 +67,8 @@ model Season {
   pointsWin Int      @default(3)
   pointsDraw Int     @default(1)
   pointsLoss Int     @default(0)
-  halfMinutes Int    @default(45) // ความยาวครึ่งละกี่นาที — ใช้กับนาฬิกาถ่ายทอดสด
+  periods       Int  @default(2) // เกมแบ่งกี่ช่วง: 2 = ครึ่งแรก/ครึ่งหลัง, 4 = 4 ควอเตอร์
+  periodMinutes Int  @default(45) @map("halfMinutes") // ช่วงละกี่นาที — ใช้กับนาฬิกาถ่ายทอดสด
   // ลำดับการตัดสินเมื่อคะแนนเท่ากัน เก็บเป็น JSON array เช่น ["GOAL_DIFF","GOALS_FOR","HEAD_TO_HEAD","WINS","NAME"]
   tiebreakers String  @default("[\"GOAL_DIFF\",\"GOALS_FOR\",\"HEAD_TO_HEAD\",\"WINS\",\"NAME\"]")
   startDate DateTime?
@@ -220,8 +221,10 @@ model Match {
   awayGoals  Int?
   notes      String?
 
-  // นาฬิกาถ่ายทอดสด — ช่วงเวลาปัจจุบันและเวลาที่ช่วงนั้นเริ่ม (เวลาเดินคำนวณจากตรงนี้ ไม่ต้องบันทึกทุกวินาที)
-  livePhase      LivePhase?
+  // นาฬิกาถ่ายทอดสด — ช่วงที่กำลังแข่ง (1…จำนวนช่วงของฤดูกาล) และเวลาที่ช่วงนั้นเริ่ม
+  // liveBreak = พักหลังจบช่วง livePeriod · เวลาเดินคำนวณจากตรงนี้ ไม่ต้องบันทึกทุกวินาที
+  livePeriod     Int?
+  liveBreak      Boolean   @default(false)
   phaseStartedAt DateTime?
 
   // ทีมผู้ตัดสิน — ผู้ตัดสินที่ 1 คือคนแจกใบเหลือง/แดงทุกใบตามกติกา สถิติผู้ตัดสินนับจากช่องนี้
@@ -251,12 +254,6 @@ model Match {
 
   @@index([seasonId, round])
   @@index([status])
-}
-
-enum LivePhase {
-  FIRST_HALF
-  HALF_TIME
-  SECOND_HALF
 }
 
 enum EventType {

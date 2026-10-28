@@ -2,30 +2,54 @@
  * นาฬิกาถ่ายทอดสด — คำนวณนาทีจากช่วงเวลาปัจจุบันและเวลาที่ช่วงนั้นเริ่ม
  * ไม่พึ่ง DB/React ใช้ได้ทั้งฝั่งเซิร์ฟเวอร์และเบราว์เซอร์
  *
- * นับแบบฟุตบอล: นาทีแรกคือ 1' · เกินเวลาครึ่งแสดงเป็นทดเวลา เช่น 45+2', 90+3'
+ * นับแบบฟุตบอล: นาทีแรกคือ 1' · เกินเวลาช่วงแสดงเป็นทดเวลา เช่น 45+2', 90+3'
+ * จำนวนช่วงและนาทีต่อช่วงมาจากการตั้งค่าฤดูกาล (2 ครึ่ง × 45 นาที, 4 ควอเตอร์ × 12 นาที ฯลฯ)
  */
-import type { LivePhase } from "@/generated/prisma/enums";
-
 export type LiveClockInput = {
-  phase: LivePhase | null;
+  /** ช่วงที่กำลังแข่ง 1…periods (null = ไม่ได้ถ่ายทอดสด) */
+  period: number | null;
+  /** พักหลังจบช่วง period */
+  onBreak: boolean;
   startedAt: Date | string | null;
-  halfMinutes: number;
+  periods: number;
+  periodMinutes: number;
 };
 
 export type LiveClockReading = {
   label: string;
-  /** นาทีหลัก กับนาทีทดเจ็บ — ใช้เติมช่องนาทีตอนบันทึกเหตุการณ์ (พักครึ่ง = null) */
+  /** นาทีหลัก กับนาทีทดเจ็บ — ใช้เติมช่องนาทีตอนบันทึกเหตุการณ์ (ช่วงพัก = null) */
   minute: number | null;
   extra: number | null;
 };
 
-export function readClock({ phase, startedAt, halfMinutes }: LiveClockInput, nowMs: number): LiveClockReading {
-  if (phase === "HALF_TIME") return { label: "พักครึ่ง", minute: null, extra: null };
-  if (!phase || !startedAt) return { label: "", minute: null, extra: null };
+/** จำนวนช่วงที่เลือกได้ในหน้าตั้งค่าฤดูกาล */
+export const PERIOD_OPTIONS = [
+  { value: 1, label: "ช่วงเดียว (ไม่มีพัก)" },
+  { value: 2, label: "2 ครึ่ง" },
+  { value: 3, label: "3 ช่วง" },
+  { value: 4, label: "4 ควอเตอร์" },
+] as const;
+
+/** ชื่อช่วง เช่น "ครึ่งแรก", "ควอเตอร์ที่ 3", "ช่วงที่ 2" */
+export function periodName(period: number, periods: number) {
+  if (periods === 2) return period === 1 ? "ครึ่งแรก" : "ครึ่งหลัง";
+  if (periods === 4) return `ควอเตอร์ที่ ${period}`;
+  if (periods === 1) return "เกม";
+  return `ช่วงที่ ${period}`;
+}
+
+/** ข้อความช่วงพัก เช่น "พักครึ่ง", "พักหลังควอเตอร์ที่ 1" */
+export function breakName(period: number, periods: number) {
+  return periods === 2 ? "พักครึ่ง" : `พักหลัง${periodName(period, periods)}`;
+}
+
+export function readClock({ period, onBreak, startedAt, periods, periodMinutes }: LiveClockInput, nowMs: number): LiveClockReading {
+  if (!period || !startedAt) return { label: "", minute: null, extra: null };
+  if (onBreak) return { label: breakName(period, periods), minute: null, extra: null };
 
   const played = Math.max(0, Math.floor((nowMs - new Date(startedAt).getTime()) / 60_000)) + 1;
-  const offset = phase === "SECOND_HALF" ? halfMinutes : 0;
-  const end = offset + halfMinutes;
+  const offset = (period - 1) * periodMinutes;
+  const end = offset + periodMinutes;
   const minute = offset + played;
 
   if (minute > end) {
@@ -36,13 +60,13 @@ export function readClock({ phase, startedAt, halfMinutes }: LiveClockInput, now
 }
 
 /**
- * เวลาเกมแบบนาฬิกาจับเวลา "MM:SS" — ครึ่งหลังนับต่อจากความยาวครึ่งแรก (45:00 → 45:01 …)
- * ไม่ตัดที่ทดเวลา (เช่น 47:12) เพื่อให้คนลงข้อมูลเห็นเวลาที่เดินจริง · พักครึ่ง/ไม่ได้แข่ง = null
+ * เวลาเกมแบบนาฬิกาจับเวลา "MM:SS" — ช่วงถัดไปนับต่อจากความยาวช่วงก่อน ๆ (เช่น 45:00 → 45:01 …)
+ * ไม่ตัดที่ทดเวลา (เช่น 47:12) เพื่อให้คนลงข้อมูลเห็นเวลาที่เดินจริง · ช่วงพัก/ไม่ได้แข่ง = null
  */
-export function readStopwatch({ phase, startedAt, halfMinutes }: LiveClockInput, nowMs: number): string | null {
-  if (!startedAt || (phase !== "FIRST_HALF" && phase !== "SECOND_HALF")) return null;
+export function readStopwatch({ period, onBreak, startedAt, periodMinutes }: LiveClockInput, nowMs: number): string | null {
+  if (!startedAt || !period || onBreak) return null;
   const elapsed = Math.max(0, Math.floor((nowMs - new Date(startedAt).getTime()) / 1000));
-  const total = elapsed + (phase === "SECOND_HALF" ? halfMinutes * 60 : 0);
+  const total = elapsed + (period - 1) * periodMinutes * 60;
   const mm = String(Math.floor(total / 60)).padStart(2, "0");
   const ss = String(total % 60).padStart(2, "0");
   return `${mm}:${ss}`;
@@ -53,14 +77,17 @@ export function readStopwatch({ phase, startedAt, halfMinutes }: LiveClockInput,
  * serverNow คือเวลาเซิร์ฟเวอร์ ณ ตอนนั้น ใช้ชดเชยนาฬิกาเครื่องคนดูที่เพี้ยน
  */
 export function liveClockProps(match: {
-  livePhase: LivePhase | null;
+  livePeriod: number | null;
+  liveBreak: boolean;
   phaseStartedAt: Date | null;
-  season: { halfMinutes: number };
+  season: { periods: number; periodMinutes: number };
 }) {
   return {
-    phase: match.livePhase,
+    period: match.livePeriod,
+    onBreak: match.liveBreak,
     startedAt: match.phaseStartedAt?.toISOString() ?? null,
-    halfMinutes: match.season.halfMinutes,
+    periods: match.season.periods,
+    periodMinutes: match.season.periodMinutes,
     serverNow: Date.now(),
   };
 }
